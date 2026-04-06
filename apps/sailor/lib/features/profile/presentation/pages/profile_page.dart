@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sailor/core/sync/sync_provider.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
 import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
@@ -149,25 +150,9 @@ class ProfilePage extends ConsumerWidget {
 
                       const SizedBox(height: 16),
 
-                      const Text('NETWORK', style: AppTextStyles.label),
+                      const Text('SYNC STATUS', style: AppTextStyles.label),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.warning,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Veilid DHT — Offline Mode',
-                            style: AppTextStyles.body,
-                          ),
-                        ],
-                      ),
+                      _buildSyncStatus(ref),
                     ],
                   ),
                 ),
@@ -308,6 +293,76 @@ class ProfilePage extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildSyncStatus(WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingSyncCountProvider);
+    final onlineAsync = ref.watch(syncOnlineProvider);
+
+    return pendingAsync.when(
+      loading: () => Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.textTertiary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('Checking...', style: AppTextStyles.body),
+        ],
+      ),
+      error: (_, __) => Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.error,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('Sync unavailable', style: AppTextStyles.body),
+        ],
+      ),
+      data: (pendingCount) {
+        final isOnline = onlineAsync.value ?? false;
+
+        final Color indicatorColor;
+        final String statusText;
+
+        if (!isOnline) {
+          indicatorColor = AppColors.error;
+          statusText = pendingCount > 0
+              ? 'Offline — $pendingCount queued'
+              : 'Offline';
+        } else if (pendingCount > 0) {
+          indicatorColor = AppColors.warning;
+          statusText = 'Syncing — $pendingCount pending';
+        } else {
+          indicatorColor = AppColors.success;
+          statusText = 'Synced — 0 pending';
+        }
+
+        return Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: indicatorColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(statusText, style: AppTextStyles.body),
+          ],
+        );
+      },
     );
   }
 }

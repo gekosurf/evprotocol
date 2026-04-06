@@ -12,3 +12,8 @@ export 'src/db/tables/cached_events.dart';
 export 'src/db/tables/cached_rsvps.dart';
 export 'src/db/tables/local_identities.dart';
 export 'src/db/tables/sync_queue.dart';
+
+// Sync layer
+export 'src/sync/veilid_node_interface.dart';
+export 'src/sync/mock_veilid_node.dart';
+export 'src/sync/veilid_sync_service.dart';

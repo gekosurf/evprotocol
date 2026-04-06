@@ -36,6 +36,9 @@ class SyncQueue extends Table {
   /// When it was last attempted.
   DateTimeColumn get lastAttemptAt => dateTime().nullable()();
 
+  /// When the operation was completed successfully.
+  DateTimeColumn get completedAt => dateTime().nullable()();
+
   /// Status: 'pending', 'processing', 'failed', 'completed'.
   TextColumn get status =>
       text().withDefault(const Constant('pending'))();

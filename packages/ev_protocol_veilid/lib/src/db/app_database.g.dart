@@ -2749,6 +2749,18 @@ class $SyncQueueTable extends SyncQueue
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt =
+      GeneratedColumn<DateTime>(
+        'completed_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2771,6 +2783,7 @@ class $SyncQueueTable extends SyncQueue
     lastError,
     queuedAt,
     lastAttemptAt,
+    completedAt,
     status,
   ];
   @override
@@ -2858,6 +2871,15 @@ class $SyncQueueTable extends SyncQueue
         ),
       );
     }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -2920,6 +2942,10 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_attempt_at'],
       ),
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      ),
       status:
           attachedDatabase.typeMapping.read(
             DriftSqlType.string,
@@ -2965,6 +2991,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   /// When it was last attempted.
   final DateTime? lastAttemptAt;
 
+  /// When the operation was completed successfully.
+  final DateTime? completedAt;
+
   /// Status: 'pending', 'processing', 'failed', 'completed'.
   final String status;
   const SyncQueueData({
@@ -2978,6 +3007,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     this.lastError,
     required this.queuedAt,
     this.lastAttemptAt,
+    this.completedAt,
     required this.status,
   });
   @override
@@ -2998,6 +3028,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     map['queued_at'] = Variable<DateTime>(queuedAt);
     if (!nullToAbsent || lastAttemptAt != null) {
       map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt);
+    }
+    if (!nullToAbsent || completedAt != null) {
+      map['completed_at'] = Variable<DateTime>(completedAt);
     }
     map['status'] = Variable<String>(status);
     return map;
@@ -3022,6 +3055,10 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
           lastAttemptAt == null && nullToAbsent
               ? const Value.absent()
               : Value(lastAttemptAt),
+      completedAt:
+          completedAt == null && nullToAbsent
+              ? const Value.absent()
+              : Value(completedAt),
       status: Value(status),
     );
   }
@@ -3042,6 +3079,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
       lastError: serializer.fromJson<String?>(json['lastError']),
       queuedAt: serializer.fromJson<DateTime>(json['queuedAt']),
       lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
+      completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       status: serializer.fromJson<String>(json['status']),
     );
   }
@@ -3059,6 +3097,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
       'lastError': serializer.toJson<String?>(lastError),
       'queuedAt': serializer.toJson<DateTime>(queuedAt),
       'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
+      'completedAt': serializer.toJson<DateTime?>(completedAt),
       'status': serializer.toJson<String>(status),
     };
   }
@@ -3074,6 +3113,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     Value<String?> lastError = const Value.absent(),
     DateTime? queuedAt,
     Value<DateTime?> lastAttemptAt = const Value.absent(),
+    Value<DateTime?> completedAt = const Value.absent(),
     String? status,
   }) => SyncQueueData(
     id: id ?? this.id,
@@ -3087,6 +3127,8 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     queuedAt: queuedAt ?? this.queuedAt,
     lastAttemptAt:
         lastAttemptAt.present ? lastAttemptAt.value : this.lastAttemptAt,
+    completedAt:
+        completedAt.present ? completedAt.value : this.completedAt,
     status: status ?? this.status,
   );
   SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
@@ -3109,6 +3151,10 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
           data.lastAttemptAt.present
               ? data.lastAttemptAt.value
               : this.lastAttemptAt,
+      completedAt:
+          data.completedAt.present
+              ? data.completedAt.value
+              : this.completedAt,
       status: data.status.present ? data.status.value : this.status,
     );
   }
@@ -3126,6 +3172,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
           ..write('lastError: $lastError, ')
           ..write('queuedAt: $queuedAt, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('completedAt: $completedAt, ')
           ..write('status: $status')
           ..write(')'))
         .toString();
@@ -3143,6 +3190,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     lastError,
     queuedAt,
     lastAttemptAt,
+    completedAt,
     status,
   );
   @override
@@ -3159,6 +3207,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
           other.lastError == this.lastError &&
           other.queuedAt == this.queuedAt &&
           other.lastAttemptAt == this.lastAttemptAt &&
+          other.completedAt == this.completedAt &&
           other.status == this.status);
 }
 
@@ -3173,6 +3222,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   final Value<String?> lastError;
   final Value<DateTime> queuedAt;
   final Value<DateTime?> lastAttemptAt;
+  final Value<DateTime?> completedAt;
   final Value<String> status;
   const SyncQueueCompanion({
     this.id = const Value.absent(),
@@ -3185,6 +3235,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     this.lastError = const Value.absent(),
     this.queuedAt = const Value.absent(),
     this.lastAttemptAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.status = const Value.absent(),
   });
   SyncQueueCompanion.insert({
@@ -3198,6 +3249,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     this.lastError = const Value.absent(),
     required DateTime queuedAt,
     this.lastAttemptAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.status = const Value.absent(),
   }) : operation = Value(operation),
        recordType = Value(recordType),
@@ -3215,6 +3267,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     Expression<String>? lastError,
     Expression<DateTime>? queuedAt,
     Expression<DateTime>? lastAttemptAt,
+    Expression<DateTime>? completedAt,
     Expression<String>? status,
   }) {
     return RawValuesInsertable({
@@ -3228,6 +3281,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
       if (lastError != null) 'last_error': lastError,
       if (queuedAt != null) 'queued_at': queuedAt,
       if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (completedAt != null) 'completed_at': completedAt,
       if (status != null) 'status': status,
     });
   }
@@ -3243,6 +3297,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     Value<String?>? lastError,
     Value<DateTime>? queuedAt,
     Value<DateTime?>? lastAttemptAt,
+    Value<DateTime?>? completedAt,
     Value<String>? status,
   }) {
     return SyncQueueCompanion(
@@ -3256,6 +3311,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
       lastError: lastError ?? this.lastError,
       queuedAt: queuedAt ?? this.queuedAt,
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      completedAt: completedAt ?? this.completedAt,
       status: status ?? this.status,
     );
   }
@@ -3293,6 +3349,9 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     if (lastAttemptAt.present) {
       map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt.value);
     }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -3312,6 +3371,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
           ..write('lastError: $lastError, ')
           ..write('queuedAt: $queuedAt, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('completedAt: $completedAt, ')
           ..write('status: $status')
           ..write(')'))
         .toString();
@@ -4527,6 +4587,7 @@ typedef $$SyncQueueTableCreateCompanionBuilder =
       Value<String?> lastError,
       required DateTime queuedAt,
       Value<DateTime?> lastAttemptAt,
+      Value<DateTime?> completedAt,
       Value<String> status,
     });
 typedef $$SyncQueueTableUpdateCompanionBuilder =
@@ -4541,6 +4602,7 @@ typedef $$SyncQueueTableUpdateCompanionBuilder =
       Value<String?> lastError,
       Value<DateTime> queuedAt,
       Value<DateTime?> lastAttemptAt,
+      Value<DateTime?> completedAt,
       Value<String> status,
     });
 
@@ -4600,6 +4662,11 @@ class $$SyncQueueTableFilterComposer
 
   ColumnFilters<DateTime> get lastAttemptAt => $composableBuilder(
     column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4668,6 +4735,11 @@ class $$SyncQueueTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -4721,6 +4793,11 @@ class $$SyncQueueTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 }
@@ -4766,6 +4843,7 @@ class $$SyncQueueTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<DateTime> queuedAt = const Value.absent(),
                 Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
               }) => SyncQueueCompanion(
                 id: id,
@@ -4778,6 +4856,7 @@ class $$SyncQueueTableTableManager
                 lastError: lastError,
                 queuedAt: queuedAt,
                 lastAttemptAt: lastAttemptAt,
+                completedAt: completedAt,
                 status: status,
               ),
           createCompanionCallback:
@@ -4792,6 +4871,7 @@ class $$SyncQueueTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 required DateTime queuedAt,
                 Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
               }) => SyncQueueCompanion.insert(
                 id: id,
@@ -4804,6 +4884,7 @@ class $$SyncQueueTableTableManager
                 lastError: lastError,
                 queuedAt: queuedAt,
                 lastAttemptAt: lastAttemptAt,
+                completedAt: completedAt,
                 status: status,
               ),
           withReferenceMapper:

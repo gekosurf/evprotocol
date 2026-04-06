@@ -42,8 +42,12 @@ evprotocol/
 │       │   │       ├── cached_events.dart
 │       │   │       ├── cached_rsvps.dart
 │       │   │       └── sync_queue.dart
+│       │   ├── sync/
+│       │   │   ├── veilid_node_interface.dart  ← Abstract DHT operations
+│       │   │   ├── mock_veilid_node.dart       ← Dev mock (configurable failures)
+│       │   │   └── veilid_sync_service.dart    ← EvSyncService implementation
 │       │   └── ev_protocol_veilid_base.dart
-│       └── test/                   ← 1 test, passes
+│       └── test/                   ← 22 tests, 100% pass
 │
 └── apps/
     └── sailor/                     ← Flutter iOS app
@@ -53,6 +57,8 @@ evprotocol/
         │   ├── core/
         │   │   ├── db/
         │   │   │   └── database_provider.dart  ← Riverpod Provider<AppDatabase>
+        │   │   ├── sync/
+        │   │   │   └── sync_provider.dart      ← VeilidSyncService + pending count
         │   │   ├── router/
         │   │   │   └── app_router.dart         ← GoRouter + auth redirect
         │   │   └── theme/
@@ -208,6 +214,7 @@ Defined in `packages/ev_protocol_veilid/lib/src/db/tables/`:
 | lastError | text? | |
 | queuedAt | dateTime | |
 | lastAttemptAt | dateTime? | |
+| completedAt | dateTime? | when successfully synced |
 | status | text | 'pending', 'processing', 'failed', 'completed' |
 
 ---
@@ -298,46 +305,42 @@ GoRouter redirect guard: unauthenticated users → `/welcome`.
 - Event creation with date/time pickers → writes to SQLite + SyncQueue
 - Event detail view with RSVP bottom sheet (Going/Maybe/Not Going)
 - Profile page with pubkey copy, backup key view, delete identity
+- **Background sync service** — processes SyncQueue every 5s via MockVeilidNode
+- **Live sync status** on Profile page (Synced / Syncing / Offline)
 - GoRouter auth redirect (no identity → welcome page)
-- All 120 tests pass (119 ev_protocol + 1 ev_protocol_veilid)
+- All 141 tests pass (119 ev_protocol + 22 ev_protocol_veilid)
 - Drift codegen is generated and committed
 
 ### ⚠️ Known Issues
 - **No seed data**: The old 6 stub events are gone now that DriftEventRepository is active. The event list starts empty — user must create events manually.
 - **Fake keypair**: `DriftAuthRepository` generates random hex strings, not real Veilid keypairs.
-- **No background sync**: SyncQueue rows accumulate but nothing processes them yet.
 - **`home_page.dart`** is a legacy placeholder — unused, can be deleted.
 
 ---
 
-## 9. Pending: Phase 8 — Background Sync Service
+## 9. Completed: Phase 8 — Background Sync Service
 
-The next major piece is implementing `VeilidSyncService`:
+### Architecture
 
-### Files to Create
-1. **`ev_protocol_veilid/lib/src/sync/veilid_node_interface.dart`**
-   - Abstract: `publishRecord(dhtKey, payload)`, `getRecord(dhtKey)`
-   - `MockVeilidNode` — logs to console (until real Veilid FFI is compiled)
+```
+User Action → Repository → SQLite + SyncQueue → [5s Timer] → VeilidNodeInterface → DHT
+                                                     ↑                    ↑
+                                              VeilidSyncService     MockVeilidNode (dev)
+                                                                    RealVeilidNode (future)
+```
 
-2. **`ev_protocol_veilid/lib/src/sync/veilid_sync_service.dart`**
-   - Implements `EvSyncService` from ev_protocol
-   - `startSync()` — spawns periodic `Timer` (5s interval)
-   - `_processQueue()` — SELECT pending FROM SyncQueue ORDER BY queuedAt
-   - On success: mark `completed`, clear from queue
-   - On failure: increment `retryCount`, set `lastError`
-   - Exposes `Stream<EvSyncEvent>` for UI status indicators
+### Implementation
 
-### Files to Modify
-3. **Sailor `database_provider.dart`** (or new `sync_provider.dart`)
-   - Provide `VeilidSyncService` via Riverpod
-   - Start sync on app boot / identity creation
+| File | Role |
+|------|------|
+| `veilid_node_interface.dart` | Abstract DHT operations: `publishRecord`, `getRecord`, `deleteRecord`, `isOnline` |
+| `mock_veilid_node.dart` | Dev mock — configurable `failureRate`, deterministic `seed`, console logging |
+| `veilid_sync_service.dart` | Implements `EvSyncService` — 5s periodic sync, exponential backoff (5 retries), 24h completed retention |
+| `sync_provider.dart` | Riverpod providers: `syncServiceProvider`, `pendingSyncCountProvider`, `syncEventsProvider` |
+| `profile_page.dart` | Live sync status indicator (🟢 Synced / 🟡 Syncing / 🔴 Offline) |
 
-4. **Profile page**
-   - Show live pending sync count
-   - Network status indicator (online/offline)
-
-### Design Decision
-> The `VeilidNodeInterface` abstraction means we can develop and test the entire queue-processing, retry, and status-tracking logic without compiling Veilid's Rust FFI. When ready, we swap `MockVeilidNode` for `RealVeilidNode` — one line change.
+### Key Design Decision
+> The `VeilidNodeInterface` abstraction means the entire queue-processing, retry, and status-tracking logic works without compiling Veilid's Rust FFI. When ready, swap `MockVeilidNode` for `RealVeilidNode` — one line change in `sync_provider.dart`.
 
 ---
 
