@@ -1,10 +1,13 @@
+import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sailor/features/auth/presentation/pages/backup_key_page.dart';
 import 'package:sailor/features/auth/presentation/pages/create_identity_page.dart';
 import 'package:sailor/features/auth/presentation/pages/welcome_page.dart';
 import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
-import 'package:sailor/features/home/presentation/pages/home_page.dart';
+import 'package:sailor/features/events/presentation/pages/create_event_page.dart';
+import 'package:sailor/features/events/presentation/pages/event_detail_page.dart';
+import 'package:sailor/features/events/presentation/pages/event_list_page.dart';
 
 /// App routes.
 abstract final class AppRoutes {
@@ -12,6 +15,8 @@ abstract final class AppRoutes {
   static const String createIdentity = '/create-identity';
   static const String backupKey = '/backup-key';
   static const String home = '/';
+  static const String eventDetail = '/event';
+  static const String createEvent = '/create-event';
 }
 
 /// GoRouter configuration with auth redirect.
@@ -52,7 +57,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) => const EventListPage(),
+      ),
+      GoRoute(
+        path: '${AppRoutes.eventDetail}/:id',
+        builder: (context, state) {
+          final event = state.extra as EvEvent?;
+          if (event == null) {
+            return const EventListPage();
+          }
+          return EventDetailPage(event: event);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.createEvent,
+        builder: (context, state) => const CreateEventPage(),
       ),
     ],
   );
