@@ -315,7 +315,7 @@ class ProfilePage extends ConsumerWidget {
           const Text('Checking...', style: AppTextStyles.body),
         ],
       ),
-      error: (_, __) => Row(
+      error: (_, _) => Row(
         children: [
           Container(
             width: 8,

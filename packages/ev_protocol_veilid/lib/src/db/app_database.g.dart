@@ -2753,14 +2753,13 @@ class $SyncQueueTable extends SyncQueue
     'completedAt',
   );
   @override
-  late final GeneratedColumn<DateTime> completedAt =
-      GeneratedColumn<DateTime>(
-        'completed_at',
-        aliasedName,
-        true,
-        type: DriftSqlType.dateTime,
-        requiredDuringInsert: false,
-      );
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -3127,8 +3126,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     queuedAt: queuedAt ?? this.queuedAt,
     lastAttemptAt:
         lastAttemptAt.present ? lastAttemptAt.value : this.lastAttemptAt,
-    completedAt:
-        completedAt.present ? completedAt.value : this.completedAt,
+    completedAt: completedAt.present ? completedAt.value : this.completedAt,
     status: status ?? this.status,
   );
   SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
@@ -3152,9 +3150,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
               ? data.lastAttemptAt.value
               : this.lastAttemptAt,
       completedAt:
-          data.completedAt.present
-              ? data.completedAt.value
-              : this.completedAt,
+          data.completedAt.present ? data.completedAt.value : this.completedAt,
       status: data.status.present ? data.status.value : this.status,
     );
   }

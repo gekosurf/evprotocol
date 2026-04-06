@@ -14,7 +14,7 @@ final syncServiceProvider = Provider<VeilidSyncService>((ref) {
   final node = MockVeilidNode(); // One-line swap for real Veilid later
   final service = VeilidSyncService(db: db, node: node);
   service.startSync();
-  ref.onDispose(() => service.dispose());
+  ref.onDispose(service.dispose);
   return service;
 });
 
