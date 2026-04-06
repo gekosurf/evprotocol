@@ -1,0 +1,16 @@
+name: ev_protocol
+description: >
+  EV Protocol v0.1 — Abstract interfaces and data models for the 
+  Event Vector decentralised event protocol.
+  
+  This package contains ONLY interfaces (abstract classes) and immutable
+  data models. It has ZERO external dependencies. Implementation packages
+  (e.g., ev_protocol_veilid) provide concrete implementations.
+
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.0
+
+# INTENTIONALLY NO DEPENDENCIES
+# This package is a pure contract — any Dart/Flutter app can import it.
