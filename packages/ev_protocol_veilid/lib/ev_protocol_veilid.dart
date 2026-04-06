@@ -6,4 +6,8 @@
 /// - Background sync service
 library;
 
-export 'src/ev_protocol_veilid_base.dart';
+export 'src/db/app_database.dart';
+export 'src/db/tables/cached_events.dart';
+export 'src/db/tables/cached_rsvps.dart';
+export 'src/db/tables/local_identities.dart';
+export 'src/db/tables/sync_queue.dart';
