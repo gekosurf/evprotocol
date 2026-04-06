@@ -21,9 +21,7 @@ class EventListPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.person_outline),
-            onPressed: () {
-              // TODO: Profile page
-            },
+            onPressed: () => context.push(AppRoutes.profile),
           ),
         ],
       ),

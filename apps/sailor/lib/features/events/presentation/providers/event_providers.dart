@@ -1,15 +1,17 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sailor/core/db/database_provider.dart';
 import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
-import 'package:sailor/features/events/data/repositories/stub_event_repository.dart';
+import 'package:sailor/features/events/data/repositories/drift_event_repository.dart';
 import 'package:sailor/features/events/domain/repositories/event_repository.dart';
 import 'package:sailor/features/events/domain/usecases/event_usecases.dart';
 
 // === REPOSITORY ===
 final eventRepositoryProvider = Provider<EventRepository>((ref) {
+  final db = ref.watch(databaseProvider);
   final identity = ref.watch(authStateProvider).value;
   final pubkey = identity?.pubkey ?? EvPubkey.fromRawKey('anonymous');
-  return StubEventRepository(currentUserPubkey: pubkey);
+  return DriftEventRepository(db, pubkey);
 });
 
 // === USE CASES ===

@@ -2,6 +2,7 @@ import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter/material.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
+import 'package:sailor/features/events/presentation/widgets/rsvp_bottom_sheet.dart';
 
 /// Event detail page — full event information.
 class EventDetailPage extends StatelessWidget {
@@ -118,11 +119,29 @@ class EventDetailPage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: RSVP flow
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('RSVP recorded ✓'),
-                      backgroundColor: AppColors.success,
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: AppColors.surfaceBg,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (context) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                        top: 24,
+                      ),
+                      child: RsvpBottomSheet(
+                        event: event,
+                        onRsvp: (status) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('RSVP recorded as ${status.name} ✓'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   );
                 },

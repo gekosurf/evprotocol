@@ -8,6 +8,7 @@ import 'package:sailor/features/auth/presentation/providers/auth_providers.dart'
 import 'package:sailor/features/events/presentation/pages/create_event_page.dart';
 import 'package:sailor/features/events/presentation/pages/event_detail_page.dart';
 import 'package:sailor/features/events/presentation/pages/event_list_page.dart';
+import 'package:sailor/features/profile/presentation/pages/profile_page.dart';
 
 /// App routes.
 abstract final class AppRoutes {
@@ -17,6 +18,7 @@ abstract final class AppRoutes {
   static const String home = '/';
   static const String eventDetail = '/event';
   static const String createEvent = '/create-event';
+  static const String profile = '/profile';
 }
 
 /// GoRouter configuration with auth redirect.
@@ -72,6 +74,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.createEvent,
         builder: (context, state) => const CreateEventPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfilePage(),
       ),
     ],
   );

@@ -7,13 +7,19 @@ environment:
   sdk: ^3.11.4
 
 dependencies:
+  drift: ^2.32.1
   ev_protocol:
     path: ../../packages/ev_protocol
+  ev_protocol_veilid:
+    path: ../../packages/ev_protocol_veilid
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.3.1
   go_router: ^17.2.0
+  path: ^1.9.1
+  path_provider: ^2.1.5
   riverpod_annotation: ^4.0.2
+  sqlite3_flutter_libs: ^0.6.0+eol
 
 dev_dependencies:
   flutter_test:
