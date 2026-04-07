@@ -4,6 +4,7 @@ import 'package:ev_protocol/ev_protocol.dart';
 import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/db/database_provider.dart';
+import 'package:sailor/features/events/presentation/providers/event_providers.dart';
 
 /// The Veilid node provider — can be overridden for testing.
 ///
@@ -21,6 +22,12 @@ final syncServiceProvider = Provider<VeilidSyncService>((ref) {
   final db = ref.watch(databaseProvider);
   final node = ref.watch(veilidNodeProvider);
   final service = VeilidSyncService(db: db, node: node);
+
+  // Refresh the event list UI when new events are discovered from peers
+  service.onEventsDiscovered = (count) {
+    ref.invalidate(myEventsProvider);
+  };
+
   service.startSync();
   ref.onDispose(service.dispose);
   return service;

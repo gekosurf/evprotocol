@@ -44,6 +44,10 @@ class VeilidSyncService implements EvSyncService {
   /// Batch size for each sync pass.
   final int batchSize;
 
+  /// Called when new events are imported from DHT discovery.
+  /// Use this to refresh UI state after background sync.
+  void Function(int importedCount)? onEventsDiscovered;
+
   Timer? _syncTimer;
   Timer? _cleanupTimer;
   bool _isProcessing = false;
@@ -60,6 +64,7 @@ class VeilidSyncService implements EvSyncService {
     this.completedRetention = const Duration(hours: 24),
     this.cleanupInterval = const Duration(hours: 1),
     this.batchSize = 10,
+    this.onEventsDiscovered,
   })  : _db = db,
         _node = node;
 
@@ -265,6 +270,8 @@ class VeilidSyncService implements EvSyncService {
       if (imported > 0) {
         // ignore: avoid_print
         print('[Sync] 🔍 Discovered $imported new event(s) from peers');
+        // Notify UI to refresh
+        onEventsDiscovered?.call(imported);
       }
     } catch (_) {
       // Discovery errors are non-fatal
