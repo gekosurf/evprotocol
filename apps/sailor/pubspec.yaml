@@ -20,9 +20,16 @@ dependencies:
   path_provider: ^2.1.5
   riverpod_annotation: ^4.0.2
   sqlite3_flutter_libs: ^0.6.0+eol
+  veilid:
+    git:
+      url: https://gitlab.com/veilid/veilid.git
+      path: veilid-flutter
+      ref: main
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 

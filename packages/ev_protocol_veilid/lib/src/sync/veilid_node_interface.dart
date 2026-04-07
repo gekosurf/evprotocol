@@ -1,7 +1,7 @@
 /// Abstract interface for Veilid DHT node operations.
 ///
 /// This is the single seam between the sync service and Veilid's FFI layer.
-/// Swap [MockVeilidNode] for a real implementation when Veilid Rust bindings
+/// Swap [MockVeilidNode] for [RealVeilidNode] when Veilid Rust bindings
 /// are compiled.
 abstract class VeilidNodeInterface {
   /// Publishes a record to the DHT.
@@ -22,6 +22,34 @@ abstract class VeilidNodeInterface {
 
   /// Checks whether the Veilid network is currently reachable.
   Future<bool> isOnline();
+
+  // ---------------------------------------------------------------------------
+  // DHT Watchers — real-time inbound sync
+  // ---------------------------------------------------------------------------
+
+  /// Begin watching a DHT record for remote changes.
+  ///
+  /// When a remote peer modifies the record, a [DhtValueChange] is emitted
+  /// on the [onValueChange] stream.
+  Future<void> watchRecord(String dhtKey);
+
+  /// Stop watching a DHT record.
+  Future<void> unwatchRecord(String dhtKey);
+
+  /// Stream of inbound DHT value changes from watched records.
+  Stream<DhtValueChange> get onValueChange;
+
+  // ---------------------------------------------------------------------------
+  // Peer Discovery
+  // ---------------------------------------------------------------------------
+
+  /// Announce a published record for peer discovery.
+  Future<void> announceRecord(String dhtKey, String recordType);
+
+  /// Discover records of a given type from the DHT network.
+  ///
+  /// Returns a list of DHT keys found.
+  Future<List<String>> discoverRecords(String recordType);
 }
 
 /// Result of a DHT publish operation.
@@ -54,4 +82,22 @@ class VeilidPublishResult {
       : success = false,
         dhtKey = null,
         error = message;
+}
+
+/// A change notification from a watched DHT record.
+class DhtValueChange {
+  /// The DHT key of the changed record.
+  final String dhtKey;
+
+  /// The updated JSON payload.
+  final String payload;
+
+  /// When the change was received locally.
+  final DateTime receivedAt;
+
+  const DhtValueChange({
+    required this.dhtKey,
+    required this.payload,
+    required this.receivedAt,
+  });
 }

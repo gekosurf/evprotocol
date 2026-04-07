@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:ev_protocol_veilid/src/sync/veilid_node_interface.dart';
@@ -25,6 +26,9 @@ class MockVeilidNode implements VeilidNodeInterface {
   bool _online;
 
   final Random _random;
+
+  final StreamController<DhtValueChange> _valueChangeController =
+      StreamController<DhtValueChange>.broadcast();
 
   /// Creates a mock Veilid node.
   ///
@@ -92,6 +96,42 @@ class MockVeilidNode implements VeilidNodeInterface {
 
   @override
   Future<bool> isOnline() async => _online;
+
+  // ---------------------------------------------------------------------------
+  // DHT Watchers — no-op in mock
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<void> watchRecord(String dhtKey) async {
+    _log('👀 WATCH (mock): $dhtKey');
+  }
+
+  @override
+  Future<void> unwatchRecord(String dhtKey) async {
+    _log('🔕 UNWATCH (mock): $dhtKey');
+  }
+
+  @override
+  Stream<DhtValueChange> get onValueChange => _valueChangeController.stream;
+
+  // ---------------------------------------------------------------------------
+  // Peer Discovery — no-op in mock
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<void> announceRecord(String dhtKey, String recordType) async {
+    _log('📢 ANNOUNCE (mock): $dhtKey (type: $recordType)');
+  }
+
+  @override
+  Future<List<String>> discoverRecords(String recordType) async {
+    _log('🔍 DISCOVER (mock): type=$recordType — returning empty');
+    return [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal
+  // ---------------------------------------------------------------------------
 
   bool _shouldFail() {
     if (failureRate <= 0.0) return false;

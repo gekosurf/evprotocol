@@ -5,13 +5,21 @@ import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/db/database_provider.dart';
 
+/// The Veilid node provider — can be overridden for testing.
+///
+/// In production, this is overridden in main.dart with the initialized
+/// [RealVeilidNode]. In tests, the default [MockVeilidNode] is used.
+final veilidNodeProvider = Provider<VeilidNodeInterface>((ref) {
+  return MockVeilidNode();
+});
+
 /// Sync service provider — single instance, starts on first access.
 ///
-/// Uses [MockVeilidNode] until real Veilid FFI bindings are compiled.
-/// To swap: replace `MockVeilidNode()` with `RealVeilidNode()`.
+/// Reads the Veilid node from [veilidNodeProvider], which defaults to
+/// MockVeilidNode but can be overridden with RealVeilidNode.
 final syncServiceProvider = Provider<VeilidSyncService>((ref) {
   final db = ref.watch(databaseProvider);
-  final node = MockVeilidNode(); // One-line swap for real Veilid later
+  final node = ref.watch(veilidNodeProvider);
   final service = VeilidSyncService(db: db, node: node);
   service.startSync();
   ref.onDispose(service.dispose);

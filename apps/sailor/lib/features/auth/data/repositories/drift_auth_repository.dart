@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
@@ -6,25 +5,30 @@ import 'package:sailor/features/auth/domain/repositories/auth_repository.dart';
 
 /// Drift-backed implementation of [AuthRepository].
 ///
-/// Stores identity in local SQLite. Keypair generation is still stubbed
-/// (will be replaced by real Veilid crypto when integrated).
+/// Uses [VeilidCryptoService] for real Veilid ed25519 keypair generation.
+/// Stores identity in local SQLite.
 class DriftAuthRepository implements AuthRepository {
   final AppDatabase _db;
+  final VeilidCryptoService _crypto;
   String? _lastBackupKey;
 
-  DriftAuthRepository(this._db);
+  DriftAuthRepository(this._db, {VeilidCryptoService? crypto})
+      : _crypto = crypto ?? VeilidCryptoService();
 
   @override
   Future<EvIdentity> createIdentity({
     required String displayName,
     String? bio,
   }) async {
-    final pubkey = _generateFakeKey();
-    _lastBackupKey = _generateBackupPhrase();
+    // Generate a real Veilid keypair
+    final (publicKey, secretKey) = await _crypto.generateKeypair();
+
+    // Store the full keypair string as backup key
+    _lastBackupKey = _crypto.exportKeypairBackup(publicKey, secretKey);
 
     await _db.into(_db.localIdentities).insert(
           LocalIdentitiesCompanion.insert(
-            pubkey: pubkey,
+            pubkey: publicKey,
             displayName: displayName,
             bio: Value(bio),
             encryptedPrivateKey: Value(_lastBackupKey),
@@ -34,7 +38,7 @@ class DriftAuthRepository implements AuthRepository {
         );
 
     return EvIdentity(
-      pubkey: EvPubkey.fromRawKey(pubkey),
+      pubkey: EvPubkey.fromRawKey(publicKey),
       displayName: displayName,
       bio: bio,
       createdAt: EvTimestamp.now(),
@@ -72,12 +76,13 @@ class DriftAuthRepository implements AuthRepository {
 
   @override
   Future<EvIdentity> restoreFromBackup(String backupKey) async {
-    final pubkey = _generateFakeKey();
+    // Parse the keypair string to recover the public key
+    final (publicKey, _) = _crypto.restoreFromKeypairString(backupKey);
     _lastBackupKey = backupKey;
 
     await _db.into(_db.localIdentities).insert(
           LocalIdentitiesCompanion.insert(
-            pubkey: pubkey,
+            pubkey: publicKey,
             displayName: 'Restored Sailor',
             encryptedPrivateKey: Value(backupKey),
             createdAt: DateTime.now(),
@@ -86,7 +91,7 @@ class DriftAuthRepository implements AuthRepository {
         );
 
     return EvIdentity(
-      pubkey: EvPubkey.fromRawKey(pubkey),
+      pubkey: EvPubkey.fromRawKey(publicKey),
       displayName: 'Restored Sailor',
       createdAt: EvTimestamp.now(),
     );
@@ -105,23 +110,5 @@ class DriftAuthRepository implements AuthRepository {
           ..limit(1))
         .getSingleOrNull();
     return count != null;
-  }
-
-  String _generateFakeKey() {
-    final rng = Random.secure();
-    final bytes = List.generate(32, (_) => rng.nextInt(256));
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
-
-  String _generateBackupPhrase() {
-    const words = [
-      'anchor', 'breeze', 'compass', 'drift', 'easterly',
-      'fleet', 'gust', 'harbour', 'island', 'jib',
-      'keel', 'leeward', 'mooring', 'nautical', 'ocean',
-      'port', 'quarter', 'rigging', 'starboard', 'tiller',
-      'upwind', 'voyage', 'windward', 'yacht',
-    ];
-    final rng = Random.secure();
-    return List.generate(12, (_) => words[rng.nextInt(words.length)]).join(' ');
   }
 }

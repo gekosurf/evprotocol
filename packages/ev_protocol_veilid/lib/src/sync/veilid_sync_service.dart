@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:ev_protocol/ev_protocol.dart';
@@ -46,6 +47,7 @@ class VeilidSyncService implements EvSyncService {
   Timer? _syncTimer;
   Timer? _cleanupTimer;
   bool _isProcessing = false;
+  StreamSubscription<DhtValueChange>? _valueChangeSubscription;
 
   final StreamController<EvSyncEvent> _eventController =
       StreamController<EvSyncEvent>.broadcast();
@@ -74,6 +76,9 @@ class VeilidSyncService implements EvSyncService {
     _syncTimer = Timer.periodic(syncInterval, (_) => _processQueue());
     _cleanupTimer = Timer.periodic(cleanupInterval, (_) => _cleanupCompleted());
 
+    // Listen for inbound DHT value changes (real-time sync from peers)
+    _valueChangeSubscription = _node.onValueChange.listen(_handleValueChange);
+
     // Run an immediate pass on start
     unawaited(_processQueue());
 
@@ -86,6 +91,8 @@ class VeilidSyncService implements EvSyncService {
     _syncTimer = null;
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
+    await _valueChangeSubscription?.cancel();
+    _valueChangeSubscription = null;
 
     return const EvSuccess(null);
   }
@@ -267,11 +274,22 @@ class VeilidSyncService implements EvSyncService {
                 dhtKey: Value(result.dhtKey),
               ));
             }
+
+            // Watch the record for future remote changes
+            await _node.watchRecord(result.dhtKey!);
+
+            // Announce for peer discovery
+            await _node.announceRecord(
+              result.dhtKey!,
+              row.recordType,
+            );
           }
           return result.success;
 
         case 'delete':
           if (row.dhtKey == null) return true; // Nothing to delete remotely
+          // Stop watching before delete
+          await _node.unwatchRecord(row.dhtKey!);
           return _node.deleteRecord(row.dhtKey!);
 
         default:
@@ -349,6 +367,137 @@ class VeilidSyncService implements EvSyncService {
       errorMessage: error,
       timestamp: DateTime.now(),
     ));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inbound sync — handle remote DHT value changes
+  // ---------------------------------------------------------------------------
+
+  /// Called when a watched DHT record is modified by a remote peer.
+  ///
+  /// Updates the local SQLite cache with the new data.
+  Future<void> _handleValueChange(DhtValueChange change) async {
+    try {
+      // Parse the incoming JSON payload
+      final json = jsonDecode(change.payload) as Map<String, dynamic>;
+      final recordType = json[r'$type'] as String?;
+
+      if (recordType != null && recordType.startsWith('ev.event')) {
+        // Update or insert the event in local cache
+        await _upsertEventFromDht(change.dhtKey, json);
+
+        _emitEvent(
+          dhtKey: change.dhtKey,
+          status: EvSyncStatus.synced,
+        );
+      }
+      // Extend with other record types (rsvp, group, etc.) as needed
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Sync] Failed to process value change for ${change.dhtKey}: $e');
+    }
+  }
+
+  /// Upserts an event from a DHT value change into the local cache.
+  Future<void> _upsertEventFromDht(
+    String dhtKey,
+    Map<String, dynamic> json,
+  ) async {
+    final name = json['name'] as String? ?? 'Unknown';
+    final description = json['description'] as String?;
+    final category = json['category'] as String?;
+    final tagsValue =
+        (json['tags'] as List<dynamic>?)?.cast<String>().join(',') ?? '';
+    final startAt = json['startAt'] != null
+        ? DateTime.tryParse(json['startAt'] as String)
+        : null;
+    final endAt = json['endAt'] != null
+        ? DateTime.tryParse(json['endAt'] as String)
+        : null;
+    final creatorPubkey =
+        json['creatorPubkey'] as String? ?? json['ownerPubkey'] as String? ?? 'unknown';
+
+    // Check if event exists
+    final existing = await (_db.select(_db.cachedEvents)
+          ..where((t) => t.dhtKey.equals(dhtKey))
+          ..limit(1))
+        .getSingleOrNull();
+
+    if (existing != null) {
+      // Update existing
+      await (_db.update(_db.cachedEvents)
+            ..where((t) => t.dhtKey.equals(dhtKey)))
+          .write(CachedEventsCompanion(
+        name: Value(name),
+        description: Value(description),
+        category: Value(category),
+        tags: Value(tagsValue),
+        startAt: startAt != null ? Value(startAt) : const Value.absent(),
+        endAt: Value(endAt),
+        isDirty: const Value(false),
+        lastSyncedAt: Value(DateTime.now()),
+      ));
+    } else {
+      // Insert new
+      await _db.into(_db.cachedEvents).insert(
+            CachedEventsCompanion.insert(
+              dhtKey: dhtKey,
+              creatorPubkey: creatorPubkey,
+              name: name,
+              description: Value(description),
+              category: Value(category),
+              tags: Value(tagsValue),
+              startAt: startAt ?? DateTime.now(),
+              endAt: Value(endAt),
+              isDirty: const Value(false),
+              lastSyncedAt: DateTime.now(),
+              createdAt: DateTime.now(),
+            ),
+          );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Discovery — pull new events from the network
+  // ---------------------------------------------------------------------------
+
+  /// Discovers new events from the DHT network and caches them locally.
+  ///
+  /// Called by pull-to-refresh in the UI.
+  Future<int> discoverNewEvents() async {
+    try {
+      final dhtKeys = await _node.discoverRecords('event');
+      var imported = 0;
+
+      for (final dhtKey in dhtKeys) {
+        // Skip if we already have this event
+        final existing = await (_db.select(_db.cachedEvents)
+              ..where((t) => t.dhtKey.equals(dhtKey))
+              ..limit(1))
+            .getSingleOrNull();
+        if (existing != null) continue;
+
+        // Fetch the record from DHT
+        final payload = await _node.getRecord(dhtKey);
+        if (payload == null) continue;
+
+        try {
+          final json = jsonDecode(payload) as Map<String, dynamic>;
+          await _upsertEventFromDht(dhtKey, json);
+
+          // Start watching this record for future changes
+          await _node.watchRecord(dhtKey);
+
+          imported++;
+        } catch (_) {
+          // Skip malformed records
+        }
+      }
+
+      return imported;
+    } catch (e) {
+      return 0;
+    }
   }
 
   /// Disposes resources. Call when the service is no longer needed.
