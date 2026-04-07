@@ -216,7 +216,6 @@ class DriftEventRepository implements EventRepository {
     final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
 
     final rows = await (_db.select(_db.cachedEvents)
-          ..where((t) => t.creatorPubkey.equals(_currentUserPubkey.value))
           ..orderBy([
             (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.asc)
           ])
@@ -288,8 +287,7 @@ class DriftEventRepository implements EventRepository {
     int limit = 20,
   }) async {
     final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
-    final q = _db.select(_db.cachedEvents)
-      ..where((t) => t.creatorPubkey.equals(_currentUserPubkey.value));
+    final q = _db.select(_db.cachedEvents);
 
     if (query != null && query.trim().isNotEmpty) {
       final pattern = '%${query.trim().toLowerCase()}%';

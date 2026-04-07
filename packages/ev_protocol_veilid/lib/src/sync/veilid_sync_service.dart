@@ -486,6 +486,10 @@ class VeilidSyncService implements EvSyncService {
   Future<int> discoverNewEvents() async {
     try {
       final dhtKeys = await _node.discoverRecords('event');
+      if (dhtKeys.isEmpty) return 0;
+
+      // ignore: avoid_print
+      print('[Sync] 🔎 Registry returned ${dhtKeys.length} keys: $dhtKeys');
       var imported = 0;
 
       for (final dhtKey in dhtKeys) {
@@ -494,11 +498,24 @@ class VeilidSyncService implements EvSyncService {
               ..where((t) => t.dhtKey.equals(dhtKey))
               ..limit(1))
             .getSingleOrNull();
-        if (existing != null) continue;
+        if (existing != null) {
+          // ignore: avoid_print
+          print('[Sync] ⏭️ Already have event $dhtKey locally');
+          continue;
+        }
 
         // Fetch the record from DHT
+        // ignore: avoid_print
+        print('[Sync] 📥 Fetching event record: $dhtKey');
         final payload = await _node.getRecord(dhtKey);
-        if (payload == null) continue;
+        if (payload == null) {
+          // ignore: avoid_print
+          print('[Sync] ❌ getRecord returned null for $dhtKey');
+          continue;
+        }
+
+        // ignore: avoid_print
+        print('[Sync] ✅ Got payload (${payload.length} chars): ${payload.substring(0, payload.length.clamp(0, 100))}');
 
         try {
           final json = jsonDecode(payload) as Map<String, dynamic>;
@@ -508,13 +525,18 @@ class VeilidSyncService implements EvSyncService {
           await _node.watchRecord(dhtKey);
 
           imported++;
-        } catch (_) {
-          // Skip malformed records
+          // ignore: avoid_print
+          print('[Sync] 🎉 Imported event: ${json['name']} ($dhtKey)');
+        } catch (e) {
+          // ignore: avoid_print
+          print('[Sync] ⚠️ Failed to parse/upsert event $dhtKey: $e');
         }
       }
 
       return imported;
     } catch (e) {
+      // ignore: avoid_print
+      print('[Sync] ❌ discoverNewEvents error: $e');
       return 0;
     }
   }
