@@ -225,6 +225,99 @@ class DriftEventRepository implements EventRepository {
     );
   }
 
+  @override
+  Future<EventPage> searchEvents({
+    String? query,
+    String? category,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
+    final q = _db.select(_db.cachedEvents);
+
+    if (query != null && query.trim().isNotEmpty) {
+      final pattern = '%${query.trim().toLowerCase()}%';
+      q.where((t) =>
+          t.name.lower().like(pattern) |
+          t.description.lower().like(pattern) |
+          t.locationName.lower().like(pattern) |
+          t.tags.lower().like(pattern));
+    }
+    if (category != null && category.isNotEmpty) {
+      q.where((t) => t.category.equals(category));
+    }
+    if (fromDate != null) {
+      q.where((t) => t.startAt.isBiggerOrEqualValue(fromDate));
+    }
+    if (toDate != null) {
+      q.where((t) => t.startAt.isSmallerOrEqualValue(toDate));
+    }
+
+    q.orderBy([
+      (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.asc),
+    ]);
+    q.limit(limit + 1, offset: offset);
+
+    final rows = await q.get();
+    final hasMore = rows.length > limit;
+    final eventsToReturn = hasMore ? rows.take(limit).toList() : rows;
+
+    return EventPage(
+      events: eventsToReturn.map(_mapRowToEvent).toList(),
+      nextCursor: hasMore ? (offset + limit).toString() : null,
+      hasMore: hasMore,
+    );
+  }
+
+  @override
+  Future<EventPage> searchMyEvents({
+    String? query,
+    String? category,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
+    final q = _db.select(_db.cachedEvents)
+      ..where((t) => t.creatorPubkey.equals(_currentUserPubkey.value));
+
+    if (query != null && query.trim().isNotEmpty) {
+      final pattern = '%${query.trim().toLowerCase()}%';
+      q.where((t) =>
+          t.name.lower().like(pattern) |
+          t.description.lower().like(pattern) |
+          t.locationName.lower().like(pattern) |
+          t.tags.lower().like(pattern));
+    }
+    if (category != null && category.isNotEmpty) {
+      q.where((t) => t.category.equals(category));
+    }
+
+    q.orderBy([
+      (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.asc),
+    ]);
+    q.limit(limit + 1, offset: offset);
+
+    final rows = await q.get();
+    final hasMore = rows.length > limit;
+    final eventsToReturn = hasMore ? rows.take(limit).toList() : rows;
+
+    return EventPage(
+      events: eventsToReturn.map(_mapRowToEvent).toList(),
+      nextCursor: hasMore ? (offset + limit).toString() : null,
+      hasMore: hasMore,
+    );
+  }
+
+  @override
+  Future<List<String>> getCategories() async {
+    final rows = await _db.customSelect(
+      'SELECT DISTINCT category FROM cached_events WHERE category IS NOT NULL ORDER BY category',
+    ).get();
+    return rows.map((r) => r.read<String>('category')).toList();
+  }
+
   EvEvent _mapRowToEvent(CachedEvent row) {
     EvEventLocation? location;
     if (row.locationName != null || row.locationAddress != null || row.latitude != null || row.longitude != null) {

@@ -2,6 +2,7 @@ import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/db/database_provider.dart';
 import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
+import 'package:sailor/features/discover/presentation/providers/search_providers.dart';
 import 'package:sailor/features/events/data/repositories/drift_event_repository.dart';
 import 'package:sailor/features/events/domain/repositories/event_repository.dart';
 import 'package:sailor/features/events/domain/usecases/event_usecases.dart';
@@ -74,7 +75,7 @@ class EventListNotifier extends AsyncNotifier<EventPage> {
   }
 }
 
-// === MY EVENTS (filtered by current user) ===
+// === MY EVENTS (filtered by current user + search) ===
 final myEventsProvider =
     AsyncNotifierProvider<MyEventsNotifier, EventPage>(
   MyEventsNotifier.new,
@@ -83,14 +84,26 @@ final myEventsProvider =
 class MyEventsNotifier extends AsyncNotifier<EventPage> {
   @override
   Future<EventPage> build() async {
+    final query = ref.watch(searchQueryProvider);
+    final category = ref.watch(selectedCategoryProvider);
     final repo = ref.read(eventRepositoryProvider);
+
+    if (query.isNotEmpty || category != null) {
+      return repo.searchMyEvents(query: query, category: category);
+    }
     return repo.getMyEvents();
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() {
+      final query = ref.read(searchQueryProvider);
+      final category = ref.read(selectedCategoryProvider);
       final repo = ref.read(eventRepositoryProvider);
+
+      if (query.isNotEmpty || category != null) {
+        return repo.searchMyEvents(query: query, category: category);
+      }
       return repo.getMyEvents();
     });
   }

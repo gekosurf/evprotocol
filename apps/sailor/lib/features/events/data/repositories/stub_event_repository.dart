@@ -106,6 +106,60 @@ class StubEventRepository implements EventRepository {
     return EventPage(events: myEvents);
   }
 
+  @override
+  Future<EventPage> searchEvents({
+    String? query,
+    String? category,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    var results = List<EvEvent>.from(_events);
+    if (query != null && query.isNotEmpty) {
+      final q = query.toLowerCase();
+      results = results.where((e) =>
+          e.name.toLowerCase().contains(q) ||
+          (e.description?.toLowerCase().contains(q) ?? false)).toList();
+    }
+    if (category != null) {
+      results = results.where((e) => e.category == category).toList();
+    }
+    return EventPage(events: results);
+  }
+
+  @override
+  Future<EventPage> searchMyEvents({
+    String? query,
+    String? category,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    var results = _events
+        .where((e) => e.creatorPubkey == _currentUserPubkey)
+        .toList();
+    if (query != null && query.isNotEmpty) {
+      final q = query.toLowerCase();
+      results = results.where((e) =>
+          e.name.toLowerCase().contains(q) ||
+          (e.description?.toLowerCase().contains(q) ?? false)).toList();
+    }
+    if (category != null) {
+      results = results.where((e) => e.category == category).toList();
+    }
+    return EventPage(events: results);
+  }
+
+  @override
+  Future<List<String>> getCategories() async {
+    return _events
+        .where((e) => e.category != null)
+        .map((e) => e.category!)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
   List<EvEvent> _generateMockEvents() {
     final now = DateTime.now().toUtc();
     final organiser = EvPubkey.fromRawKey('rpyc-organiser-key');

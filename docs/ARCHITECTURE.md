@@ -385,22 +385,56 @@ MainShell ← [Discover Tab] ← discoverEventsProvider ← getEvents()
 
 ---
 
-## 11. Future Features (Not Started)
+## 11. Completed: Phase 10 — Event Search & Filtering
+
+### Architecture
+
+Both tabs share common search state:
+
+```
+searchQueryProvider ─────┐
+selectedCategoryProvider ┤
+                         ├─→ discoverEventsProvider → searchEvents()
+                         └─→ myEventsProvider       → searchMyEvents()
+
+categoriesProvider → getCategories() → auto-derived from DB
+```
+
+### Implementation
+
+| File | Role |
+|------|------|
+| `search_providers.dart` | Shared search state — `searchQueryProvider`, `selectedCategoryProvider` |
+| `search_bar_widget.dart` | Debounced (300ms) text field with themed styling |
+| `category_chips.dart` | Horizontally scrollable `ChoiceChip` list, auto-populated from DB |
+| `discover_providers.dart` | Watches search state, calls `searchEvents()` when filters active |
+| `event_providers.dart` | `myEventsProvider` watches search state, calls `searchMyEvents()` |
+| `drift_event_repository.dart` | LIKE-based text search across name, description, location, tags |
+
+### Search Capabilities
+- **Text search**: Case-insensitive LIKE across event name, description, location name, and tags
+- **Category filter**: Exact match on the `category` column
+- **Date range** (API ready): `fromDate`/`toDate` parameters wired but not yet exposed in UI
+- **Both tabs**: Search and category filters work on Discover and My Events
+
+---
+
+## 12. Future Features (Not Started)
 
 | Feature | Notes |
 |---------|-------|
+| DHT-based search | `EvSearchService` — distributed search across Veilid peers |
 | Group/Club management | `EvGroup`, `EvVessel` models exist in protocol |
 | Chat | `EvChatChannel`, `EvChatMessage` models exist |
 | Sailing race tracking | `EvRace`, `EvCourse`, `EvTrack` extension models exist |
 | Media uploads | `EvMediaReference` for event photos |
-| Event search | `EvSearchService` interface defined |
 | Payment/ticketing | `EvPaymentIntent`, `EvTicket`, `EvPaymentReceipt` exist |
 | Moderation | Content reporting and actions |
 | Real Veilid integration | Replace mock with `veilid_flutter` package |
 
 ---
 
-## 11. Commands Reference
+## 13. Commands Reference
 
 ```bash
 # Run the app

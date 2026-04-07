@@ -45,6 +45,27 @@ abstract class EventRepository {
     String? cursor,
     int limit = 20,
   });
+
+  /// Searches all events with optional text query, category, and date filters.
+  Future<EventPage> searchEvents({
+    String? query,
+    String? category,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 20,
+  });
+
+  /// Searches user's own events with optional text query and category filter.
+  Future<EventPage> searchMyEvents({
+    String? query,
+    String? category,
+    String? cursor,
+    int limit = 20,
+  });
+
+  /// Returns all distinct categories from cached events.
+  Future<List<String>> getCategories();
 }
 
 /// A page of events with optional cursor for pagination.
