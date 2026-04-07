@@ -1,9 +1,22 @@
+import 'dart:ui';
+
 import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/router/app_router.dart';
 import 'package:sailor/core/sync/sync_provider.dart';
 import 'package:sailor/core/theme/app_theme.dart';
+
+/// Enables mouse/trackpad scrolling on desktop platforms.
+class _DesktopScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
 
 /// Root widget for the Sailor app.
 class SailorApp extends ConsumerStatefulWidget {
@@ -57,6 +70,7 @@ class _SailorAppState extends ConsumerState<SailorApp>
       title: 'Sailor',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      scrollBehavior: _DesktopScrollBehavior(),
       routerConfig: router,
     );
   }
