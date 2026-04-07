@@ -16,7 +16,7 @@ export 'src/db/tables/sync_queue.dart';
 // Sync layer
 export 'src/sync/veilid_node_interface.dart';
 export 'src/sync/mock_veilid_node.dart';
-export 'src/sync/real_veilid_node.dart';
+// real_veilid_node.dart — requires `veilid` FFI package (disabled for simulator)
 export 'src/sync/veilid_sync_service.dart';
 
 // Seed data
@@ -24,4 +24,4 @@ export 'src/data/seed_events.dart';
 export 'src/data/seed_data_service.dart';
 
 // Crypto
-export 'src/crypto/veilid_crypto_service.dart';
+// veilid_crypto_service.dart — requires `veilid` FFI package (disabled for simulator)
