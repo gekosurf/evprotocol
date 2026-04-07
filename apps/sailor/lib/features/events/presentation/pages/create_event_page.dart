@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
+import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
 import 'package:sailor/features/events/presentation/providers/event_providers.dart';
 
 /// Create event page.
@@ -84,13 +85,15 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
         _startTime.minute,
       );
 
-      await ref.read(eventListProvider.notifier).createEvent(
+      await ref.read(myEventsProvider.notifier).createEvent(
             name: _nameController.text,
             description: _descController.text.isEmpty
                 ? null
                 : _descController.text,
             startAt: startAt,
           );
+      // Also refresh Discover tab
+      ref.invalidate(discoverEventsProvider);
 
       if (mounted) {
         context.pop();

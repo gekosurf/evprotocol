@@ -98,6 +98,14 @@ class StubEventRepository implements EventRepository {
     );
   }
 
+  @override
+  Future<EventPage> getMyEvents({String? cursor, int limit = 20}) async {
+    final myEvents = _events
+        .where((e) => e.creatorPubkey == _currentUserPubkey)
+        .toList();
+    return EventPage(events: myEvents);
+  }
+
   List<EvEvent> _generateMockEvents() {
     final now = DateTime.now().toUtc();
     final organiser = EvPubkey.fromRawKey('rpyc-organiser-key');

@@ -4,24 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:sailor/core/router/app_router.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
-import 'package:sailor/features/events/presentation/providers/event_providers.dart';
+import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
 import 'package:sailor/features/events/presentation/widgets/event_card.dart';
 
-/// My Events page — shows only events created by the current user.
-///
-/// Embedded inside [MainShell] as the second tab.
-/// The AppBar and FAB are provided by the shell.
-class EventListPage extends ConsumerWidget {
-  const EventListPage({super.key});
+/// Discover page — shows all events in the local cache (seed + user + DHT).
+class DiscoverPage extends ConsumerWidget {
+  const DiscoverPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventState = ref.watch(myEventsProvider);
+    final eventsState = ref.watch(discoverEventsProvider);
 
-    return eventState.when(
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
-      ),
+    return eventsState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -32,14 +27,11 @@ class EventListPage extends ConsumerWidget {
               color: AppColors.error,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Failed to load events',
-              style: AppTextStyles.body,
-            ),
+            const Text('Failed to load events', style: AppTextStyles.body),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () =>
-                  ref.read(myEventsProvider.notifier).refresh(),
+                  ref.read(discoverEventsProvider.notifier).refresh(),
               child: const Text('Retry'),
             ),
           ],
@@ -49,7 +41,7 @@ class EventListPage extends ConsumerWidget {
         color: AppColors.highlight,
         backgroundColor: AppColors.surfaceBg,
         onRefresh: () =>
-            ref.read(myEventsProvider.notifier).refresh(),
+            ref.read(discoverEventsProvider.notifier).refresh(),
         child: page.events.isEmpty
             ? ListView(
                 children: [
@@ -60,20 +52,20 @@ class EventListPage extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.sailing_outlined,
+                            Icons.explore_outlined,
                             size: 64,
                             color: AppColors.textTertiary,
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No events yet',
+                            'No events nearby',
                             style: AppTextStyles.h3.copyWith(
                               color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Create your first event below',
+                            'Pull to refresh or create your own',
                             style: AppTextStyles.bodySecondary,
                           ),
                         ],

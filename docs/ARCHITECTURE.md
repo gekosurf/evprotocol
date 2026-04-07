@@ -46,6 +46,9 @@ evprotocol/
 │       │   │   ├── veilid_node_interface.dart  ← Abstract DHT operations
 │       │   │   ├── mock_veilid_node.dart       ← Dev mock (configurable failures)
 │       │   │   └── veilid_sync_service.dart    ← EvSyncService implementation
+│       │   ├── data/
+│       │   │   ├── seed_events.dart            ← 6 Perth sailing events
+│       │   │   └── seed_data_service.dart      ← Idempotent DB seeder
 │       │   └── ev_protocol_veilid_base.dart
 │       └── test/                   ← 22 tests, 100% pass
 │
@@ -96,13 +99,17 @@ evprotocol/
         │       │       │   ├── event_card.dart
         │       │       │   └── rsvp_bottom_sheet.dart
         │       │       └── pages/
-        │       │           ├── event_list_page.dart
+        │       │           ├── event_list_page.dart           ← "My Events" (filtered)
         │       │           ├── event_detail_page.dart
         │       │           └── create_event_page.dart
-        │       ├── profile/
-        │       │   └── presentation/pages/profile_page.dart
-        │       └── home/
-        │           └── presentation/pages/home_page.dart     ← Legacy, unused
+        │       ├── discover/
+        │       │   └── presentation/
+        │       │       ├── providers/discover_providers.dart  ← Seed + all events
+        │       │       └── pages/discover_page.dart           ← Discover feed
+        │       ├── shell/
+        │       │   └── presentation/pages/main_shell.dart     ← Bottom tab nav
+        │       └── profile/
+        │           └── presentation/pages/profile_page.dart
         └── analysis_options.yaml   ← 33 clean_architecture_linter rules
 
 ```
@@ -301,20 +308,19 @@ GoRouter redirect guard: unauthenticated users → `/welcome`.
 ### ✅ Fully Working
 - Auth onboarding flow (Welcome → Create Identity → Backup Key → Home)
 - Identity persists in SQLite across hot restarts
-- Event list with 0 events (empty state) — user can create events
+- **Tabbed navigation** — Discover (all events) + My Events (user-created)
+- **6 seed events** — Perth yacht clubs auto-inserted on first launch
 - Event creation with date/time pickers → writes to SQLite + SyncQueue
 - Event detail view with RSVP bottom sheet (Going/Maybe/Not Going)
 - Profile page with pubkey copy, backup key view, delete identity
-- **Background sync service** — processes SyncQueue every 5s via MockVeilidNode
-- **Live sync status** on Profile page (Synced / Syncing / Offline)
+- Background sync service — processes SyncQueue every 5s via MockVeilidNode
+- Live sync status on Profile page (Synced / Syncing / Offline)
 - GoRouter auth redirect (no identity → welcome page)
 - All 141 tests pass (119 ev_protocol + 22 ev_protocol_veilid)
-- Drift codegen is generated and committed
+- `flutter analyze` — 0 issues across all packages
 
 ### ⚠️ Known Issues
-- **No seed data**: The old 6 stub events are gone now that DriftEventRepository is active. The event list starts empty — user must create events manually.
 - **Fake keypair**: `DriftAuthRepository` generates random hex strings, not real Veilid keypairs.
-- **`home_page.dart`** is a legacy placeholder — unused, can be deleted.
 
 ---
 
@@ -344,7 +350,42 @@ User Action → Repository → SQLite + SyncQueue → [5s Timer] → VeilidNodeI
 
 ---
 
-## 10. Future Features (Not Started)
+## 10. Completed: Phase 9 — Event Discovery Feed
+
+### Architecture
+
+```
+App Launch → SeedDataService.seedIfEmpty() → SQLite (6 Perth events)
+                                                      ↓
+MainShell ← [Discover Tab] ← discoverEventsProvider ← getEvents()
+          ← [My Events Tab] ← myEventsProvider      ← getMyEvents(pubkey)
+```
+
+### Implementation
+
+| File | Role |
+|------|------|
+| `seed_events.dart` | 6 curated Perth sailing events with real yacht club locations |
+| `seed_data_service.dart` | Idempotent seeder — inserts only if `cachedEvents` is empty |
+| `main_shell.dart` | Material 3 `NavigationBar` with Discover + My Events tabs |
+| `discover_page.dart` | All cached events with pull-to-refresh |
+| `discover_providers.dart` | `seedDataProvider` + `discoverEventsProvider` |
+| `event_list_page.dart` | Refactored to "My Events" — filtered by current user pubkey |
+| `event_providers.dart` | Added `myEventsProvider` with `getMyEvents()` |
+
+### Seed Events
+| Event | Venue | Category |
+|-------|-------|----------|
+| Wednesday Twilight Series | Royal Perth Yacht Club | Racing |
+| Fremantle Harbour Sunset Sail | Fremantle Sailing Club | Social |
+| Safety Bay SUP & Sail Mashup | Safety Bay Yacht Club | Watersports |
+| Rottnest Channel Crossing Briefing | Royal Freshwater Bay YC | Racing |
+| Swan River Full Moon Paddle | Elizabeth Quay | Social |
+| South of Perth YC — AGM | South of Perth Yacht Club | Club |
+
+---
+
+## 11. Future Features (Not Started)
 
 | Feature | Notes |
 |---------|-------|

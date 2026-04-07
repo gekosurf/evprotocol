@@ -17,3 +17,7 @@ export 'src/db/tables/sync_queue.dart';
 export 'src/sync/veilid_node_interface.dart';
 export 'src/sync/mock_veilid_node.dart';
 export 'src/sync/veilid_sync_service.dart';
+
+// Seed data
+export 'src/data/seed_events.dart';
+export 'src/data/seed_data_service.dart';

@@ -1,17 +1,20 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
+import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
+import 'package:sailor/features/events/presentation/providers/event_providers.dart';
 import 'package:sailor/features/events/presentation/widgets/rsvp_bottom_sheet.dart';
 
 /// Event detail page — full event information.
-class EventDetailPage extends StatelessWidget {
+class EventDetailPage extends ConsumerWidget {
   final EvEvent event;
 
   const EventDetailPage({super.key, required this.event});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event'),
@@ -126,20 +129,32 @@ class EventDetailPage extends StatelessWidget {
                     shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                     ),
-                    builder: (context) => Padding(
+                    builder: (sheetContext) => Padding(
                       padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                        bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
                         top: 24,
                       ),
                       child: RsvpBottomSheet(
                         event: event,
-                        onRsvp: (status) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('RSVP recorded as ${status.name} ✓'),
-                              backgroundColor: AppColors.success,
-                            ),
+                        onRsvp: (status) async {
+                          // Persist the RSVP via use case
+                          final rsvpUseCase = ref.read(rsvpToEventUseCaseProvider);
+                          await rsvpUseCase(
+                            eventDhtKey: event.dhtKey!,
+                            status: status,
                           );
+                          // Refresh both event lists
+                          ref.invalidate(discoverEventsProvider);
+                          ref.invalidate(myEventsProvider);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('RSVP recorded as ${status.name} ✓'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),

@@ -73,3 +73,45 @@ class EventListNotifier extends AsyncNotifier<EventPage> {
     await refresh();
   }
 }
+
+// === MY EVENTS (filtered by current user) ===
+final myEventsProvider =
+    AsyncNotifierProvider<MyEventsNotifier, EventPage>(
+  MyEventsNotifier.new,
+);
+
+class MyEventsNotifier extends AsyncNotifier<EventPage> {
+  @override
+  Future<EventPage> build() async {
+    final repo = ref.read(eventRepositoryProvider);
+    return repo.getMyEvents();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() {
+      final repo = ref.read(eventRepositoryProvider);
+      return repo.getMyEvents();
+    });
+  }
+
+  Future<void> createEvent({
+    required String name,
+    String? description,
+    required DateTime startAt,
+    DateTime? endAt,
+    EvEventLocation? location,
+    List<String> tags = const [],
+  }) async {
+    final useCase = ref.read(createEventUseCaseProvider);
+    await useCase(
+      name: name,
+      description: description,
+      startAt: startAt,
+      endAt: endAt,
+      location: location,
+      tags: tags,
+    );
+    await refresh();
+  }
+}

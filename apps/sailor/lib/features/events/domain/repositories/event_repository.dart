@@ -39,6 +39,12 @@ abstract class EventRepository {
 
   /// Deletes an event (only if creator).
   Future<void> deleteEvent(EvDhtKey dhtKey);
+
+  /// Gets paginated events created by the current user.
+  Future<EventPage> getMyEvents({
+    String? cursor,
+    int limit = 20,
+  });
 }
 
 /// A page of events with optional cursor for pagination.

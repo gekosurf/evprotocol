@@ -202,6 +202,29 @@ class DriftEventRepository implements EventRepository {
     });
   }
 
+  @override
+  Future<EventPage> getMyEvents({String? cursor, int limit = 20}) async {
+    final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
+
+    final rows = await (_db.select(_db.cachedEvents)
+          ..where((t) => t.creatorPubkey.equals(_currentUserPubkey.value))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.asc)
+          ])
+          ..limit(limit + 1, offset: offset))
+        .get();
+
+    final hasMore = rows.length > limit;
+    final eventsToReturn = hasMore ? rows.take(limit).toList() : rows;
+    final events = eventsToReturn.map(_mapRowToEvent).toList();
+
+    return EventPage(
+      events: events,
+      nextCursor: hasMore ? (offset + limit).toString() : null,
+      hasMore: hasMore,
+    );
+  }
+
   EvEvent _mapRowToEvent(CachedEvent row) {
     EvEventLocation? location;
     if (row.locationName != null || row.locationAddress != null || row.latitude != null || row.longitude != null) {

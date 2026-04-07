@@ -7,8 +7,8 @@ import 'package:sailor/features/auth/presentation/pages/welcome_page.dart';
 import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
 import 'package:sailor/features/events/presentation/pages/create_event_page.dart';
 import 'package:sailor/features/events/presentation/pages/event_detail_page.dart';
-import 'package:sailor/features/events/presentation/pages/event_list_page.dart';
 import 'package:sailor/features/profile/presentation/pages/profile_page.dart';
+import 'package:sailor/features/shell/presentation/pages/main_shell.dart';
 
 /// App routes.
 abstract final class AppRoutes {
@@ -59,14 +59,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const EventListPage(),
+        builder: (context, state) => const MainShell(),
       ),
       GoRoute(
         path: '${AppRoutes.eventDetail}/:id',
         builder: (context, state) {
           final event = state.extra as EvEvent?;
           if (event == null) {
-            return const EventListPage();
+            return const MainShell();
           }
           return EventDetailPage(event: event);
         },
