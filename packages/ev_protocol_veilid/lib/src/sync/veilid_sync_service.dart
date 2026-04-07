@@ -395,7 +395,10 @@ class VeilidSyncService implements EvSyncService {
   Future<void> _handleValueChange(DhtValueChange change) async {
     try {
       // Parse the incoming JSON payload
-      final json = jsonDecode(change.payload) as Map<String, dynamic>;
+      final decoded = jsonDecode(change.payload);
+      // Skip non-map payloads (e.g. the registry record is a JSON list)
+      if (decoded is! Map<String, dynamic>) return;
+      final json = decoded;
       final recordType = json[r'$type'] as String?;
 
       if (recordType != null && recordType.startsWith('ev.event')) {

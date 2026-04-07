@@ -109,6 +109,9 @@ class RealVeilidNode implements VeilidNodeInterface {
     String dhtKey,
     String payload,
   ) async {
+    if (!await isOnline()) {
+      return VeilidPublishResult(dhtKey: dhtKey, success: false);
+    }
     final rc = _requireContext();
     final data = Uint8List.fromList(utf8.encode(payload));
 
@@ -247,6 +250,7 @@ class RealVeilidNode implements VeilidNodeInterface {
   @override
   Future<void> announceRecord(String dhtKey, String recordType) async {
     if (recordType != 'event') return; // Only index events for now
+    if (!await isOnline()) return; // Wait for network
 
     try {
       final rc = _requireContext();
@@ -277,6 +281,7 @@ class RealVeilidNode implements VeilidNodeInterface {
   @override
   Future<List<String>> discoverRecords(String recordType) async {
     if (recordType != 'event') return [];
+    if (!await isOnline()) return []; // Wait for network
 
     try {
       final rc = _requireContext();

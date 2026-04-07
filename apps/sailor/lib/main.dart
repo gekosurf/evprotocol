@@ -20,7 +20,9 @@ void main() async {
   // Falls back to MockVeilidNode if FFI fails.
   VeilidNodeInterface node;
   try {
-    final realNode = RealVeilidNode();
+    final realNode = RealVeilidNode(
+      registryKey: 'VLD0:RwD-QkPkx_fQZJl_uP7OmPKrUslZjnAweq-Vd9gvSgs:N_BrmweTB3yS3MQHHrFv8RVwC1G2D1z2whdIqgHFmaY',
+    );
     await realNode.initialize();
     node = realNode;
     // ignore: avoid_print
