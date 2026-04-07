@@ -1,4 +1,7 @@
-platform :osx, '10.15'
+# Veilid requires Rust (cargo) — ensure it's on PATH for CocoaPods subshells
+ENV['PATH'] = "#{ENV['HOME']}/.cargo/bin:#{ENV['PATH']}"
+
+platform :osx, '13.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -38,5 +41,30 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
+  end
+
+  # Embed the Veilid dylib into the app bundle so Dart FFI can dlopen it.
+  # The veilid macOS podspec builds the dylib but doesn't embed it.
+  veilid_cache_dir = Dir.glob("#{ENV['HOME']}/.pub-cache/git/veilid-*/veilid-flutter").first
+  if veilid_cache_dir
+    workspace_dir = File.dirname(veilid_cache_dir)
+    dylib_path = File.join(workspace_dir, 'target', 'lipo-darwin', 'libveilid_flutter.dylib')
+
+    # Add a Copy Files build phase to embed the dylib
+    runner_target = installer.aggregate_targets.first
+    main_project = installer.pods_project
+    runner_project_path = File.join(File.dirname(__FILE__), 'Runner.xcodeproj')
+
+    # Write a helper script that flutter's build will run
+    embed_script = File.join(File.dirname(__FILE__), 'embed_veilid.sh')
+    File.write(embed_script, <<~SCRIPT)
+      #!/bin/bash
+      DYLIB_SRC="#{dylib_path}"
+      FRAMEWORKS_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+      mkdir -p "$FRAMEWORKS_DIR"
+      cp "$DYLIB_SRC" "$FRAMEWORKS_DIR/libveilid_flutter.dylib"
+      codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" "$FRAMEWORKS_DIR/libveilid_flutter.dylib" 2>/dev/null || codesign --force --sign - "$FRAMEWORKS_DIR/libveilid_flutter.dylib"
+    SCRIPT
+    File.chmod(0755, embed_script)
   end
 end
