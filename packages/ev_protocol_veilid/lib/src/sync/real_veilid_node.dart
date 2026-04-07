@@ -35,7 +35,7 @@ class RealVeilidNode implements VeilidNodeInterface {
   /// Must be called once before any DHT operations.
   Future<void> initialize() async {
     // Get platform-appropriate config
-    Veilid.instance.initializeVeilidCore(await getDefaultVeilidPlatformConfig());
+    Veilid.instance.initializeVeilidCore(getDefaultVeilidPlatformConfig());
 
     final config = await getDefaultVeilidConfig(
       isWeb: false,
@@ -332,7 +332,37 @@ class RealVeilidNode implements VeilidNodeInterface {
   }
 }
 
-/// Returns platform-specific Veilid config (path_provider directories etc).
-Future<Map<String, dynamic>> getDefaultVeilidPlatformConfig() async {
-  return <String, dynamic>{};
+/// Returns the platform config JSON expected by `initializeVeilidCore`.
+///
+/// This must match the Rust `VeilidFFIConfig` struct exactly:
+///   { logging: { terminal: {...}, api: {...}, otlp: {...}, flame: {...} } }
+Map<String, dynamic> getDefaultVeilidPlatformConfig() {
+  return <String, dynamic>{
+    'logging': <String, dynamic>{
+      'terminal': <String, dynamic>{
+        'enabled': true,
+        'level': 'Info',
+        'ignoreLogTargets': <String>[],
+        'directives': <String>[],
+      },
+      'api': <String, dynamic>{
+        'enabled': true,
+        'level': 'Info',
+        'ignoreLogTargets': <String>[],
+        'directives': <String>[],
+      },
+      'otlp': <String, dynamic>{
+        'enabled': false,
+        'level': 'Trace',
+        'grpcEndpoint': 'localhost:4317',
+        'serviceName': 'sailor',
+        'ignoreLogTargets': <String>[],
+        'directives': <String>[],
+      },
+      'flame': <String, dynamic>{
+        'enabled': false,
+        'path': '',
+      },
+    },
+  };
 }

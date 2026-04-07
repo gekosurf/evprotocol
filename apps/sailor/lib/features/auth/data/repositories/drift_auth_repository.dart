@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:drift/drift.dart';
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
@@ -7,10 +5,11 @@ import 'package:sailor/features/auth/domain/repositories/auth_repository.dart';
 
 /// Drift-backed implementation of [AuthRepository].
 ///
-/// Uses stub key generation for simulator builds. When the veilid FFI is
-/// enabled, swap to [VeilidCryptoService] for real ed25519 keypairs.
+/// Uses [VeilidCryptoService] to generate real ed25519 keypairs and stores
+/// the encrypted private key and public key in SQLite.
 class DriftAuthRepository implements AuthRepository {
   final AppDatabase _db;
+  final VeilidCryptoService _crypto = VeilidCryptoService();
   String? _lastBackupKey;
 
   DriftAuthRepository(this._db);
@@ -20,24 +19,24 @@ class DriftAuthRepository implements AuthRepository {
     required String displayName,
     String? bio,
   }) async {
-    // TODO: Replace with VeilidCryptoService.generateKeypair() when FFI enabled
-    final publicKey = _generateStubKey();
-    final secretKey = _generateStubKey();
-    _lastBackupKey = '$publicKey:$secretKey';
+    // Generate real Veilid identity
+    final keypair = await _crypto.generateKeypair();
+    final backupStr = _crypto.exportKeypairBackup(keypair.$1, keypair.$2);
+    _lastBackupKey = backupStr;
 
     await _db.into(_db.localIdentities).insert(
           LocalIdentitiesCompanion.insert(
-            pubkey: publicKey,
+            pubkey: keypair.$1,
             displayName: displayName,
             bio: Value(bio),
-            encryptedPrivateKey: Value(_lastBackupKey),
+            encryptedPrivateKey: Value(backupStr),
             createdAt: DateTime.now(),
             isActive: const Value(true),
           ),
         );
 
     return EvIdentity(
-      pubkey: EvPubkey.fromRawKey(publicKey),
+      pubkey: EvPubkey.fromRawKey(keypair.$1),
       displayName: displayName,
       bio: bio,
       createdAt: EvTimestamp.now(),
@@ -75,7 +74,7 @@ class DriftAuthRepository implements AuthRepository {
 
   @override
   Future<EvIdentity> restoreFromBackup(String backupKey) async {
-    // Parse pubkey from backup format "pubkey:secret"
+    // Basic format "pubkey:secret"
     final publicKey = backupKey.contains(':')
         ? backupKey.split(':').first
         : backupKey;
@@ -111,13 +110,5 @@ class DriftAuthRepository implements AuthRepository {
           ..limit(1))
         .getSingleOrNull();
     return count != null;
-  }
-
-  /// Generates a 64-char hex key stub for simulator development.
-  ///
-  /// TODO: Replace with real Veilid ed25519 keypair generation when FFI available.
-  String _generateStubKey() {
-    final rng = Random.secure();
-    return List.generate(64, (_) => rng.nextInt(16).toRadixString(16)).join();
   }
 }
