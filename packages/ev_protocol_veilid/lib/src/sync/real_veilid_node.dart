@@ -43,6 +43,7 @@ class RealVeilidNode implements VeilidNodeInterface {
   /// Initialize Veilid core and attach to the network.
   ///
   /// Must be called once before any DHT operations.
+  /// Handles hot-restart gracefully (AlreadyInitialized).
   Future<void> initialize() async {
     // Get platform-appropriate config
     Veilid.instance.initializeVeilidCore(getDefaultVeilidPlatformConfig());
@@ -52,8 +53,21 @@ class RealVeilidNode implements VeilidNodeInterface {
       programName: 'sailor',
     );
 
-    // Start the core — returns a stream of updates
-    final updateStream = await Veilid.instance.startupVeilidCore(config);
+    Stream<VeilidUpdate> updateStream;
+    try {
+      // Start the core — returns a stream of updates
+      updateStream = await Veilid.instance.startupVeilidCore(config);
+    } on VeilidAPIException catch (e) {
+      if (e.toString().contains('AlreadyInitialized')) {
+        // Hot-restart: core is already running, just get a routing context
+        _log('♻️ Veilid already initialized — reusing existing core');
+        _routingContext = await Veilid.instance.routingContext();
+        // Assume attached — DHT ops will gracefully retry if not ready
+        _attachmentState = AttachmentState.fullyAttached;
+        return;
+      }
+      rethrow;
+    }
 
     // Listen for updates (attachment state, value changes)
     _updateSubscription = updateStream.listen(_handleUpdate);
@@ -273,6 +287,10 @@ class RealVeilidNode implements VeilidNodeInterface {
         await rc.setDHTValue(registryKey, 0, data);
         _log('📢 Announced $dhtKey to registry (${currentKeys.length} total)');
       }
+    } on VeilidAPIException catch (e) {
+      if (!e.toString().contains('TryAgain')) {
+        _log('⚠️ Failed to announce $dhtKey: $e');
+      }
     } catch (e) {
       _log('⚠️ Failed to announce $dhtKey: $e');
     }
@@ -296,6 +314,11 @@ class RealVeilidNode implements VeilidNodeInterface {
       final list = jsonDecode(json) as List<dynamic>;
       _log('🔍 Discovered ${list.length} event keys from registry');
       return list.cast<String>();
+    } on VeilidAPIException catch (e) {
+      if (!e.toString().contains('TryAgain')) {
+        _log('⚠️ Failed to discover records: $e');
+      }
+      return [];
     } catch (e) {
       _log('⚠️ Failed to discover records: $e');
       return [];

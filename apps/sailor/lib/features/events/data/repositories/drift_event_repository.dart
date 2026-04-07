@@ -125,7 +125,7 @@ class DriftEventRepository implements EventRepository {
     );
 
     await _db.transaction(() async {
-      await _db.into(_db.cachedRsvps).insertOnConflictUpdate(
+      await _db.into(_db.cachedRsvps).insert(
         CachedRsvpsCompanion.insert(
           eventDhtKey: rsvp.eventDhtKey.value,
           attendeePubkey: rsvp.attendeePubkey.value,
@@ -134,6 +134,15 @@ class DriftEventRepository implements EventRepository {
           createdAt: DateTime.parse(rsvp.createdAt.toIso8601()),
           lastSyncedAt: DateTime.now(),
           isDirty: const Value(true),
+        ),
+        onConflict: DoUpdate(
+          (old) => CachedRsvpsCompanion(
+            status: Value(rsvp.status.name),
+            guestCount: Value(rsvp.guestCount),
+            lastSyncedAt: Value(DateTime.now()),
+            isDirty: const Value(true),
+          ),
+          target: [_db.cachedRsvps.eventDhtKey, _db.cachedRsvps.attendeePubkey],
         ),
       );
 
