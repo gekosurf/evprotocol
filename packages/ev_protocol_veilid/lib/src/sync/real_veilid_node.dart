@@ -17,6 +17,10 @@ import 'veilid_node_interface.dart';
 /// node.shutdown()    → detaches and shuts down core
 /// ```
 class RealVeilidNode implements VeilidNodeInterface {
+  /// Optional pre-shared registry key for cross-device sync.
+  /// Both devices must use the same key to discover each other's events.
+  RealVeilidNode({String? registryKey}) : _registryKeyStr = registryKey;
+
   VeilidRoutingContext? _routingContext;
   StreamSubscription<VeilidUpdate>? _updateSubscription;
 
@@ -26,6 +30,12 @@ class RealVeilidNode implements VeilidNodeInterface {
   /// Stream controller for DHT value change notifications.
   final StreamController<DhtValueChange> _valueChangeController =
       StreamController<DhtValueChange>.broadcast();
+
+  /// Cached registry record key — lazily created on first announce.
+  String? _registryKeyStr;
+
+  /// The current registry key (null until first announce or set via constructor).
+  String? get registryKey => _registryKeyStr;
 
   /// Whether the node has been initialized.
   bool get isInitialized => _routingContext != null;
@@ -236,24 +246,89 @@ class RealVeilidNode implements VeilidNodeInterface {
 
   @override
   Future<void> announceRecord(String dhtKey, String recordType) async {
-    // In Veilid, records are discoverable by their key once published.
-    // The DHT routing table inherently handles discovery — any peer
-    // that knows the key can resolve it. No separate announce step needed.
-    //
-    // For structured discovery (e.g. "find all events"), we use a
-    // well-known DHT record as an index/registry that lists known keys.
-    _log('📢 Record announced: $dhtKey (type: $recordType)');
+    if (recordType != 'event') return; // Only index events for now
+
+    try {
+      final rc = _requireContext();
+      final registryKey = await _getOrCreateRegistryKey();
+
+      // Read current registry contents
+      final existing = await rc.getDHTValue(registryKey, 0, forceRefresh: true);
+      final currentKeys = <String>{};
+
+      if (existing != null) {
+        final json = utf8.decode(existing.data);
+        final list = jsonDecode(json) as List<dynamic>;
+        currentKeys.addAll(list.cast<String>());
+      }
+
+      // Add the new key if not already present
+      if (currentKeys.add(dhtKey)) {
+        final updatedJson = jsonEncode(currentKeys.toList());
+        final data = Uint8List.fromList(utf8.encode(updatedJson));
+        await rc.setDHTValue(registryKey, 0, data);
+        _log('📢 Announced $dhtKey to registry (${currentKeys.length} total)');
+      }
+    } catch (e) {
+      _log('⚠️ Failed to announce $dhtKey: $e');
+    }
   }
 
   @override
   Future<List<String>> discoverRecords(String recordType) async {
-    // Discovery in Veilid works by reading from well-known DHT records
-    // that serve as indexes. For now, return empty — the seed data and
-    // locally cached events provide the initial dataset.
-    //
-    // Future: implement a shared DHT record that acts as an event registry.
-    _log('🔍 Discover records (type: $recordType) — local cache only for now');
-    return [];
+    if (recordType != 'event') return [];
+
+    try {
+      final rc = _requireContext();
+      final registryKey = await _getOrCreateRegistryKey();
+
+      // Force refresh to get the latest from the network
+      final valueData = await rc.getDHTValue(registryKey, 0, forceRefresh: true);
+
+      if (valueData == null) return [];
+
+      final json = utf8.decode(valueData.data);
+      final list = jsonDecode(json) as List<dynamic>;
+      _log('🔍 Discovered ${list.length} event keys from registry');
+      return list.cast<String>();
+    } catch (e) {
+      _log('⚠️ Failed to discover records: $e');
+      return [];
+    }
+  }
+
+  /// Gets or creates the shared event registry DHT record.
+  ///
+  /// If a registry key was provided in the constructor, opens that record.
+  /// Otherwise creates a new one (and logs the key so it can be shared).
+  Future<RecordKey> _getOrCreateRegistryKey() async {
+    final rc = _requireContext();
+
+    if (_registryKeyStr != null) {
+      // Re-open an existing registry
+      final key = RecordKey.fromString(_registryKeyStr!);
+      try {
+        await rc.openDHTRecord(key);
+      } on VeilidAPIException {
+        // May already be open
+      }
+      return key;
+    }
+
+    // Create a brand new registry
+    final descriptor = await rc.createDHTRecord(
+      cryptoKindVLD0,
+      const DHTSchema.dflt(oCnt: 1),
+    );
+    _registryKeyStr = descriptor.key.toString();
+
+    // Initialize with empty list
+    final emptyList = Uint8List.fromList(utf8.encode('[]'));
+    await rc.setDHTValue(descriptor.key, 0, emptyList);
+
+    _log('📋 Created event registry: $_registryKeyStr');
+    _log('📋 ⭐ SHARE THIS KEY with other devices to discover events');
+    return descriptor.key;
   }
 
   // ---------------------------------------------------------------------------

@@ -49,6 +49,10 @@ class _SailorAppState extends ConsumerState<SailorApp>
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
 
+    // Eagerly initialize the sync service so it starts processing
+    // the queue and publishing dirty records to the DHT.
+    ref.read(syncServiceProvider);
+
     return MaterialApp.router(
       title: 'Sailor',
       debugShowCheckedModeBanner: false,

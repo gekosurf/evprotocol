@@ -252,6 +252,22 @@ class VeilidSyncService implements EvSyncService {
       return processedCount;
     } finally {
       _isProcessing = false;
+
+      // After processing outgoing, poll for new events from peers
+      unawaited(_discoverInBackground());
+    }
+  }
+
+  /// Runs discovery in the background without blocking the sync loop.
+  Future<void> _discoverInBackground() async {
+    try {
+      final imported = await discoverNewEvents();
+      if (imported > 0) {
+        // ignore: avoid_print
+        print('[Sync] 🔍 Discovered $imported new event(s) from peers');
+      }
+    } catch (_) {
+      // Discovery errors are non-fatal
     }
   }
 
