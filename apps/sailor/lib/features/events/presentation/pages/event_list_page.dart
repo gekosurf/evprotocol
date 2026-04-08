@@ -95,10 +95,13 @@ class EventListPage extends ConsumerWidget {
                         final event = page.events[index];
                         return EventCard(
                           event: event,
-                          onTap: () => context.push(
-                            '${AppRoutes.eventDetail}/${event.dhtKey?.value ?? index}',
-                            extra: event,
-                          ),
+                          onTap: () {
+                            final id = event.dhtKey?.value ?? index.toString();
+                            context.push(
+                              '${AppRoutes.eventDetail}/${Uri.encodeComponent(id)}',
+                              extra: event,
+                            );
+                          },
                         );
                       },
                     ),

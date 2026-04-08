@@ -1,11 +1,61 @@
 import 'package:ev_protocol_at/ev_protocol_at.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sailor/core/db/database_provider.dart';
 
-/// AT Protocol session store — in-memory for Phase 2.
-/// Phase 4: swap for flutter_secure_storage callbacks.
+import 'dart:io';
+
+/// AT Protocol session store — uses flutter_secure_storage for iOS Keychain/Android Keystore.
+/// On macOS, uses an in-memory store to avoid Keychain entitlement requirements during local development.
 final atSessionStoreProvider = Provider<AtSessionStore>((ref) {
-  return AtSessionStore();
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    return AtSessionStore();
+  }
+
+  const storage = FlutterSecureStorage();
+  
+  return AtSessionStore(
+    onSave: (session) async {
+      try {
+        await storage.write(key: 'at_handle', value: session.handle);
+        await storage.write(key: 'at_did', value: session.did);
+        await storage.write(key: 'at_access_jwt', value: session.accessJwt);
+        await storage.write(key: 'at_refresh_jwt', value: session.refreshJwt);
+      } catch (e) {
+        // Ignore keychain errors on unsigned local macOS builds
+      }
+    },
+    onLoad: () async {
+      try {
+        final handle = await storage.read(key: 'at_handle');
+        final did = await storage.read(key: 'at_did');
+        final access = await storage.read(key: 'at_access_jwt');
+        final refresh = await storage.read(key: 'at_refresh_jwt');
+        
+        if (handle != null && did != null && access != null && refresh != null) {
+          return SavedSession(
+            handle: handle,
+            did: did,
+            accessJwt: access,
+            refreshJwt: refresh,
+          );
+        }
+      } catch (e) {
+        // Ignore keychain errors on unsigned local macOS builds
+      }
+      return null;
+    },
+    onClear: () async {
+      try {
+        await storage.delete(key: 'at_handle');
+        await storage.delete(key: 'at_did');
+        await storage.delete(key: 'at_access_jwt');
+        await storage.delete(key: 'at_refresh_jwt');
+      } catch (e) {
+        // Ignore keychain errors on unsigned local macOS builds
+      }
+    },
+  );
 });
 
 /// AT Protocol authentication service.

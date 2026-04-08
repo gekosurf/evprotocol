@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import '../auth/at_auth_service.dart';
 import '../lexicon_nsids.dart';
 import '../mappers/event_mapper.dart';
-import '../mappers/rsvp_mapper.dart';
 import '../models/smoke_signal_event.dart';
 
 /// AT Protocol-backed event repository.
@@ -158,9 +157,6 @@ class AtEventRepository {
       ),
     );
 
-    // Step 3: Try immediate PDS push (non-blocking)
-    _tryPushEvent(event, localId);
-
     return event;
   }
 
@@ -224,9 +220,6 @@ class AtEventRepository {
       ),
     );
 
-    // Step 3: Try immediate PDS push (non-blocking)
-    _tryPushRsvp(rsvp, eventKey);
-
     return rsvp;
   }
 
@@ -263,63 +256,7 @@ class AtEventRepository {
   // PDS SYNC (background, non-blocking)
   // ═══════════════════════════════════════════════════════════════════
 
-  /// Attempt to push an event to the user's PDS.
-  void _tryPushEvent(EvEvent event, int localId) async {
-    final client = _auth.client;
-    if (client == null) return;
 
-    try {
-      final smokeSignal = EventMapper.toSmokeSignal(event);
-      final result = await client.atproto.repo.createRecord(
-        repo: _auth.did!,
-        collection: LexiconNsids.event,
-        record: smokeSignal.toRecord(),
-      );
-
-      final atUri = result.data.uri.toString();
-      debugPrint('[AtSync] Event pushed: $atUri');
-
-      // Update local record with the real AT URI
-      await (_db.update(_db.cachedEvents)
-            ..where((t) => t.id.equals(localId)))
-          .write(CachedEventsCompanion(
-        dhtKey: Value(atUri),
-        isDirty: const Value(false),
-        lastSyncedAt: Value(DateTime.now()),
-      ));
-    } catch (e) {
-      debugPrint('[AtSync] Event push failed (will retry): $e');
-      // Left in sync queue for AtSyncService to retry
-    }
-  }
-
-  /// Attempt to push an RSVP to the user's PDS.
-  void _tryPushRsvp(EvRsvp rsvp, String eventAtUri) async {
-    final client = _auth.client;
-    if (client == null) return;
-
-    try {
-      final smokeSignal = RsvpMapper.toSmokeSignal(rsvp, eventAtUri: eventAtUri);
-      final result = await client.atproto.repo.createRecord(
-        repo: _auth.did!,
-        collection: LexiconNsids.rsvp,
-        record: smokeSignal.toRecord(),
-      );
-
-      debugPrint('[AtSync] RSVP pushed: ${result.data.uri}');
-
-      // Mark as synced
-      await (_db.update(_db.cachedRsvps)
-            ..where((t) => t.eventDhtKey.equals(rsvp.eventDhtKey.value))
-            ..where(
-                (t) => t.attendeePubkey.equals(rsvp.attendeePubkey.value)))
-          .write(const CachedRsvpsCompanion(
-        isDirty: Value(false),
-      ));
-    } catch (e) {
-      debugPrint('[AtSync] RSVP push failed (will retry): $e');
-    }
-  }
 
   /// Attempt to delete a record from the PDS.
   void _tryDeleteFromPds(String atUri) async {

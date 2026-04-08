@@ -20,15 +20,13 @@ class CategoryChips extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (categories) {
-        if (categories.isEmpty) return const SizedBox.shrink();
-
         return SizedBox(
           height: 44,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: [
-              // "All" chip
+               // "All" chip
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(

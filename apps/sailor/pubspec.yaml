@@ -16,8 +16,12 @@ dependencies:
     path: ../../packages/ev_protocol_veilid
   flutter:
     sdk: flutter
+  flutter_map: ^8.2.2
   flutter_riverpod: ^3.3.1
+  flutter_secure_storage: ^10.0.0
   go_router: ^17.2.0
+  image_picker: ^1.2.1
+  latlong2: ^0.9.1
   path: ^1.9.1
   path_provider: ^2.1.5
   riverpod_annotation: ^4.0.2

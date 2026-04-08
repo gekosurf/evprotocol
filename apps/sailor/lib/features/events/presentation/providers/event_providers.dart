@@ -23,6 +23,11 @@ final getEventUseCaseProvider = Provider<GetEventUseCase>((ref) {
   return GetEventUseCase(ref.watch(eventRepositoryProvider));
 });
 
+final eventDetailProvider = FutureProvider.family<EvEvent?, String>((ref, dhtKeyVal) async {
+  final useCase = ref.watch(getEventUseCaseProvider);
+  return useCase(EvDhtKey(dhtKeyVal));
+});
+
 final createEventUseCaseProvider = Provider<CreateEventUseCase>((ref) {
   return CreateEventUseCase(ref.watch(eventRepositoryProvider));
 });
@@ -95,7 +100,15 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() {
+    state = await AsyncValue.guard(() async {
+      // Sync from PDS first
+      try {
+        final atRepo = ref.read(atEventRepositoryProvider);
+        await atRepo.refreshFromPds();
+      } catch (e) {
+        // Ignore network errors, just show local cache
+      }
+
       final query = ref.read(searchQueryProvider);
       final category = ref.read(selectedCategoryProvider);
       final repo = ref.read(eventRepositoryProvider);

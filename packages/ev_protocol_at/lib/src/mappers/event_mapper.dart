@@ -14,9 +14,22 @@ class EventMapper {
 
   /// Convert an [EvEvent] to a [SmokeSignalEvent] for PDS write.
   static SmokeSignalEvent toSmokeSignal(EvEvent event) {
+    String? fullDesc = event.description;
+    final Set<String> allTags = {...event.tags};
+    if (event.category != null) allTags.add(event.category!);
+
+    if (allTags.isNotEmpty) {
+      final tagsStr = allTags.map((t) => '#${t.replaceAll(' ', '_')}').join(' ');
+      if (fullDesc != null && fullDesc.isNotEmpty) {
+        fullDesc = '$fullDesc\n\n$tagsStr';
+      } else {
+        fullDesc = tagsStr;
+      }
+    }
+
     return SmokeSignalEvent(
       name: event.name,
-      description: event.description,
+      description: fullDesc,
       startsAt: event.startAt.toIso8601(),
       endsAt: event.endAt?.toIso8601(),
       status: 'scheduled',
@@ -50,16 +63,32 @@ class EventMapper {
       );
     }
 
+    final desc = record.description;
+    final List<String> extractedTags = [];
+    var cleanDesc = desc;
+
+    if (desc != null && desc.isNotEmpty) {
+      final tagRegex = RegExp(r'#(\w+)');
+      final matches = tagRegex.allMatches(desc);
+      for (final match in matches) {
+        extractedTags.add(match.group(1)!.replaceAll('_', ' '));
+      }
+      cleanDesc = desc.replaceAll(tagRegex, '').trim();
+      if (cleanDesc.isEmpty) cleanDesc = null;
+    }
+
     return EvEvent(
       dhtKey: EvDhtKey(atUri), // Store AT URI in dhtKey field for now
       creatorPubkey: EvPubkey(creatorDid),
       name: record.name,
-      description: record.description,
+      description: cleanDesc,
       startAt: EvTimestamp.parse(record.startsAt),
       endAt: record.endsAt != null
           ? EvTimestamp.parse(record.endsAt!)
           : null,
       location: location,
+      category: extractedTags.isNotEmpty ? extractedTags.first : null,
+      tags: extractedTags,
       createdAt: EvTimestamp.parse(record.createdAt),
     );
   }

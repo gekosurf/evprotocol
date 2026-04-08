@@ -48,6 +48,14 @@ class _AtLoginPageState extends ConsumerState<AtLoginPage> {
 
       // Start background sync
       ref.read(atSyncServiceProvider).start();
+      
+      // Perform initial PDS event pull to populate local cache
+      try {
+        await ref.read(atEventRepositoryProvider).refreshFromPds();
+      } catch (e) {
+        debugPrint('Initial PDS sync failed (non-fatal): $e');
+      }
+
       ref.read(atAuthStateProvider.notifier).setAuthenticated(true);
 
       if (mounted) {

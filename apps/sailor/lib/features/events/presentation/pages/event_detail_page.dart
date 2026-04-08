@@ -19,6 +19,10 @@ class EventDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final dhtKeyVal = event.dhtKey?.value;
+    final freshEventAsync = dhtKeyVal != null ? ref.watch(eventDetailProvider(dhtKeyVal)) : null;
+    final displayEvent = freshEventAsync?.value ?? event;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event'),
@@ -31,10 +35,10 @@ class EventDetailPage extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Tags
-            if (event.tags.isNotEmpty) ...[
+            if (displayEvent.tags.isNotEmpty) ...[
               Wrap(
                 spacing: 8,
-                children: event.tags.map((tag) {
+                children: displayEvent.tags.map((tag) {
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -58,24 +62,24 @@ class EventDetailPage extends ConsumerWidget {
             ],
 
             // Title
-            Text(event.name, style: AppTextStyles.h1),
+            Text(displayEvent.name, style: AppTextStyles.h1),
             const SizedBox(height: 16),
 
             // Date & time
             _InfoRow(
               icon: Icons.calendar_today,
               label: 'When',
-              value: _formatDateRange(),
+              value: _formatDateRange(displayEvent),
             ),
             const SizedBox(height: 12),
 
             // Location
-            if (event.location != null) ...[
+            if (displayEvent.location != null) ...[
               _InfoRow(
                 icon: Icons.location_on_outlined,
                 label: 'Where',
-                value: event.location!.name ?? 'Unknown',
-                subtitle: event.location!.address,
+                value: displayEvent.location!.name ?? 'Unknown',
+                subtitle: displayEvent.location!.address,
               ),
               const SizedBox(height: 12),
             ],
@@ -84,28 +88,28 @@ class EventDetailPage extends ConsumerWidget {
             _InfoRow(
               icon: Icons.people_outline,
               label: 'Going',
-              value: '${event.rsvpCount} attending',
+              value: '${displayEvent.rsvpCount} attending',
             ),
             const SizedBox(height: 12),
 
             // Visibility
             _InfoRow(
-              icon: event.visibility == EvEventVisibility.private_
+              icon: displayEvent.visibility == EvEventVisibility.private_
                   ? Icons.lock_outline
                   : Icons.public,
               label: 'Visibility',
-              value: event.visibility == EvEventVisibility.private_
+              value: displayEvent.visibility == EvEventVisibility.private_
                   ? 'Invite Only'
                   : 'Public',
             ),
 
             // Ticketing
-            if (event.ticketing != null) ...[
+            if (displayEvent.ticketing != null) ...[
               const SizedBox(height: 12),
               _InfoRow(
                 icon: Icons.confirmation_number_outlined,
                 label: 'Tickets',
-                value: _formatTicketing(),
+                value: _formatTicketing(displayEvent),
               ),
             ],
 
@@ -114,15 +118,15 @@ class EventDetailPage extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Description
-            if (event.description != null) ...[
+            if (displayEvent.description != null) ...[
               const Text('ABOUT', style: AppTextStyles.label),
               const SizedBox(height: 8),
-              Text(event.description!, style: AppTextStyles.body),
+              Text(displayEvent.description!, style: AppTextStyles.body),
               const SizedBox(height: 24),
             ],
 
             // Attendee list
-            RsvpListSection(event: event),
+            RsvpListSection(event: displayEvent),
             const SizedBox(height: 24),
             const Divider(color: AppColors.divider),
             const SizedBox(height: 16),
@@ -145,17 +149,20 @@ class EventDetailPage extends ConsumerWidget {
                         top: 24,
                       ),
                       child: RsvpBottomSheet(
-                        event: event,
+                        event: displayEvent,
                         onRsvp: (status) async {
                           // Persist the RSVP via use case
                           final rsvpUseCase = ref.read(rsvpToEventUseCaseProvider);
                           await rsvpUseCase(
-                            eventDhtKey: event.dhtKey!,
+                            eventDhtKey: displayEvent.dhtKey!,
                             status: status,
                           );
-                          // Refresh both event lists
+                          // Refresh event lists and the single event detail view
                           ref.invalidate(discoverEventsProvider);
                           ref.invalidate(myEventsProvider);
+                          if (displayEvent.dhtKey != null) {
+                            ref.invalidate(eventDetailProvider(displayEvent.dhtKey!.value));
+                          }
 
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -178,7 +185,7 @@ class EventDetailPage extends ConsumerWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  final atUri = event.dhtKey?.value ?? '';
+                  final atUri = displayEvent.dhtKey?.value ?? '';
                   if (atUri.startsWith('at://')) {
                     Clipboard.setData(ClipboardData(text: atUri));
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -213,12 +220,12 @@ class EventDetailPage extends ConsumerWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      final key = event.dhtKey?.value ?? '';
+                      final key = displayEvent.dhtKey?.value ?? '';
                       context.push(
-                        '${AppRoutes.tracking}/$key',
+                        '${AppRoutes.tracking}/${Uri.encodeComponent(key)}',
                         extra: {
                           'eventAtUri': key,
-                          'eventName': event.name,
+                          'eventName': displayEvent.name,
                         },
                       );
                     },
@@ -230,12 +237,12 @@ class EventDetailPage extends ConsumerWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      final key = event.dhtKey?.value ?? '';
+                      final key = displayEvent.dhtKey?.value ?? '';
                       context.push(
-                        '${AppRoutes.eventPhotos}/$key',
+                        '${AppRoutes.eventPhotos}/${Uri.encodeComponent(key)}',
                         extra: {
                           'eventAtUri': key,
-                          'eventName': event.name,
+                          'eventName': displayEvent.name,
                           'participantDids': <String>[],
                         },
                       );
@@ -254,8 +261,8 @@ class EventDetailPage extends ConsumerWidget {
     );
   }
 
-  String _formatDateRange() {
-    final start = DateTime.parse(event.startAt.toIso8601());
+  String _formatDateRange(EvEvent displayEvent) {
+    final start = DateTime.parse(displayEvent.startAt.toIso8601());
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -264,8 +271,8 @@ class EventDetailPage extends ConsumerWidget {
     final time =
         '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
 
-    if (event.endAt != null) {
-      final end = DateTime.parse(event.endAt!.toIso8601());
+    if (displayEvent.endAt != null) {
+      final end = DateTime.parse(displayEvent.endAt!.toIso8601());
       final endTime =
           '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
       return '$day · $time – $endTime';
@@ -273,8 +280,8 @@ class EventDetailPage extends ConsumerWidget {
     return '$day · $time';
   }
 
-  String _formatTicketing() {
-    final t = event.ticketing!;
+  String _formatTicketing(EvEvent displayEvent) {
+    final t = displayEvent.ticketing!;
     if (t.model == EvTicketModel.free) return 'Free';
     if (t.tiers.isEmpty) return 'Ticketed';
     final tier = t.tiers.first;
