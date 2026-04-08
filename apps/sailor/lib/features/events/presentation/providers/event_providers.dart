@@ -1,18 +1,17 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sailor/core/db/database_provider.dart';
-import 'package:sailor/features/auth/presentation/providers/auth_providers.dart';
+import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/features/discover/presentation/providers/search_providers.dart';
-import 'package:sailor/features/events/data/repositories/drift_event_repository.dart';
+import 'package:sailor/features/events/data/repositories/at_event_repository_adapter.dart';
 import 'package:sailor/features/events/domain/repositories/event_repository.dart';
 import 'package:sailor/features/events/domain/usecases/event_usecases.dart';
 
-// === REPOSITORY ===
+// === REPOSITORY (AT Protocol + SQLite offline-first) ===
 final eventRepositoryProvider = Provider<EventRepository>((ref) {
-  final db = ref.watch(databaseProvider);
-  final identity = ref.watch(authStateProvider).value;
-  final pubkey = identity?.pubkey ?? EvPubkey.fromRawKey('anonymous');
-  return DriftEventRepository(db, pubkey);
+  // AtEventRepository handles both local SQLite and PDS sync.
+  // For now, wrap it in an adapter that implements the EventRepository interface.
+  final atRepo = ref.watch(atEventRepositoryProvider);
+  return AtEventRepositoryAdapter(atRepo);
 });
 
 // === USE CASES ===

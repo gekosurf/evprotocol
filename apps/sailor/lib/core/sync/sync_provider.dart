@@ -1,14 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sailor/core/at/at_providers.dart';
 
-/// Placeholder providers for the sync layer.
+/// Live pending sync count — powered by AtSyncService.
 ///
-/// Phase 2 will replace these with AT Protocol sync:
-/// - AtSyncService (background PDS sync)
-/// - Offline queue retry
-///
-/// For now, the app works fully offline via Drift SQLite.
-
-/// Live pending sync count — always 0 until AT Protocol sync is implemented.
+/// Shows 0 until AT Protocol login, then reflects the real
+/// offline queue depth from the sync service.
 final pendingSyncCountProvider = StreamProvider<int>((ref) {
-  return Stream.value(0);
+  final syncService = ref.watch(atSyncServiceProvider);
+  return syncService.pendingCount;
 });

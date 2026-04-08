@@ -10,6 +10,8 @@ dependencies:
   drift: ^2.32.1
   ev_protocol:
     path: ../../packages/ev_protocol
+  ev_protocol_at:
+    path: ../../packages/ev_protocol_at
   ev_protocol_veilid:
     path: ../../packages/ev_protocol_veilid
   flutter:

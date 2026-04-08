@@ -1,0 +1,23 @@
+name: ev_protocol_at
+description: AT Protocol transport layer for the EV Protocol. Handles authentication, record CRUD, and offline-first sync with a user's PDS.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.4
+  flutter: '>=3.29.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  bluesky: ^1.4.1
+  ev_protocol:
+    path: ../ev_protocol
+  ev_protocol_veilid:
+    path: ../ev_protocol_veilid
+  drift: ^2.25.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
