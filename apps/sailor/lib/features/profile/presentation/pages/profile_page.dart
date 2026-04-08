@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/sync/sync_provider.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
@@ -130,23 +131,7 @@ class ProfilePage extends ConsumerWidget {
 
                       const Text('PROTOCOL', style: AppTextStyles.label),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.success,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'EV Protocol v0.1.0',
-                            style: AppTextStyles.body,
-                          ),
-                        ],
-                      ),
+                      _buildAtProtocolStatus(ref),
 
                       const SizedBox(height: 16),
 
@@ -296,6 +281,79 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  Widget _buildAtProtocolStatus(WidgetRef ref) {
+    final isAtAuth = ref.watch(atAuthStateProvider);
+    final auth = ref.watch(atAuthServiceProvider);
+
+    if (isAtAuth && auth.did != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.success,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('AT Protocol — Connected', style: AppTextStyles.body),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: auth.did!));
+              ScaffoldMessenger.of(ref.context).showSnackBar(
+                const SnackBar(
+                  content: Text('DID copied'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                const Icon(Icons.fingerprint, size: 14, color: AppColors.textTertiary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    auth.did!,
+                    style: AppTextStyles.bodySmall.copyWith(fontFamily: 'monospace'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.copy, size: 12, color: AppColors.textTertiary),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            color: AppColors.warning,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text('Offline only — sign in for sync', style: AppTextStyles.body),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSyncStatus(WidgetRef ref) {
     final pendingAsync = ref.watch(pendingSyncCountProvider);
 
@@ -329,19 +387,22 @@ class ProfilePage extends ConsumerWidget {
         ],
       ),
       data: (pendingCount) {
+        final synced = pendingCount == 0;
         return Row(
           children: [
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.textTertiary,
+              decoration: BoxDecoration(
+                color: synced ? AppColors.success : AppColors.warning,
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 8),
-            const Text('Local only — AT Protocol pending',
-                style: AppTextStyles.body),
+            Text(
+              synced ? 'All synced ✓' : '$pendingCount pending',
+              style: AppTextStyles.body,
+            ),
           ],
         );
       },
