@@ -5,11 +5,11 @@ import 'package:sailor/features/auth/domain/repositories/auth_repository.dart';
 
 /// Drift-backed implementation of [AuthRepository].
 ///
-/// Uses [VeilidCryptoService] to generate real ed25519 keypairs and stores
-/// the encrypted private key and public key in SQLite.
+/// Post-cleanup: removed VeilidCryptoService dependency.
+/// Identity is now a simple local profile stored in SQLite.
+/// Phase 2 will replace this with AT Protocol DID-based auth.
 class DriftAuthRepository implements AuthRepository {
   final AppDatabase _db;
-  final VeilidCryptoService _crypto = VeilidCryptoService();
   String? _lastBackupKey;
 
   DriftAuthRepository(this._db);
@@ -19,24 +19,22 @@ class DriftAuthRepository implements AuthRepository {
     required String displayName,
     String? bio,
   }) async {
-    // Generate real Veilid identity
-    final keypair = await _crypto.generateKeypair();
-    final backupStr = _crypto.exportKeypairBackup(keypair.$1, keypair.$2);
-    _lastBackupKey = backupStr;
+    // Generate a simple local identity (no crypto needed until AT Protocol auth)
+    final pubkey = 'local-${DateTime.now().millisecondsSinceEpoch}';
 
     await _db.into(_db.localIdentities).insert(
           LocalIdentitiesCompanion.insert(
-            pubkey: keypair.$1,
+            pubkey: pubkey,
             displayName: displayName,
             bio: Value(bio),
-            encryptedPrivateKey: Value(backupStr),
+            encryptedPrivateKey: const Value('pending-at-protocol'),
             createdAt: DateTime.now(),
             isActive: const Value(true),
           ),
         );
 
     return EvIdentity(
-      pubkey: EvPubkey.fromRawKey(keypair.$1),
+      pubkey: EvPubkey.fromRawKey(pubkey),
       displayName: displayName,
       bio: bio,
       createdAt: EvTimestamp.now(),
@@ -74,7 +72,6 @@ class DriftAuthRepository implements AuthRepository {
 
   @override
   Future<EvIdentity> restoreFromBackup(String backupKey) async {
-    // Basic format "pubkey:secret"
     final publicKey = backupKey.contains(':')
         ? backupKey.split(':').first
         : backupKey;

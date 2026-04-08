@@ -1,27 +1,20 @@
-/// EV Protocol Veilid — Concrete implementations of ev_protocol interfaces.
+/// EV Database — Drift (SQLite) persistence layer.
 ///
-/// This package provides:
-/// - SQLite (Drift) persistence for offline-first SSOT
-/// - Veilid DHT for decentralised sync
-/// - Background sync service
+/// Provides:
+/// - AppDatabase with cached events, RSVPs, identities, sync queue
+/// - Seed data for development
+///
+/// Post-cleanup: removed Veilid sync, crypto, and node management.
+/// This package is now a pure Drift database layer with no network deps.
 library;
 
-export 'src/ev_protocol_veilid_base.dart';
+// Database
 export 'src/db/app_database.dart';
 export 'src/db/tables/cached_events.dart';
 export 'src/db/tables/cached_rsvps.dart';
 export 'src/db/tables/local_identities.dart';
 export 'src/db/tables/sync_queue.dart';
 
-// Sync layer
-export 'src/sync/veilid_node_interface.dart';
-export 'src/sync/mock_veilid_node.dart';
-export 'src/sync/real_veilid_node.dart';
-export 'src/sync/veilid_sync_service.dart';
-
 // Seed data
 export 'src/data/seed_events.dart';
 export 'src/data/seed_data_service.dart';
-
-// Crypto
-export 'src/crypto/veilid_crypto_service.dart';

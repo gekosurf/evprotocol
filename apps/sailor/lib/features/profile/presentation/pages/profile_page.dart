@@ -298,7 +298,6 @@ class ProfilePage extends ConsumerWidget {
 
   Widget _buildSyncStatus(WidgetRef ref) {
     final pendingAsync = ref.watch(pendingSyncCountProvider);
-    final onlineAsync = ref.watch(syncOnlineProvider);
 
     return pendingAsync.when(
       loading: () => Row(
@@ -330,36 +329,19 @@ class ProfilePage extends ConsumerWidget {
         ],
       ),
       data: (pendingCount) {
-        final isOnline = onlineAsync.value ?? false;
-
-        final Color indicatorColor;
-        final String statusText;
-
-        if (!isOnline) {
-          indicatorColor = AppColors.error;
-          statusText = pendingCount > 0
-              ? 'Offline — $pendingCount queued'
-              : 'Offline';
-        } else if (pendingCount > 0) {
-          indicatorColor = AppColors.warning;
-          statusText = 'Syncing — $pendingCount pending';
-        } else {
-          indicatorColor = AppColors.success;
-          statusText = 'Synced — 0 pending';
-        }
-
         return Row(
           children: [
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
-                color: indicatorColor,
+              decoration: const BoxDecoration(
+                color: AppColors.textTertiary,
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 8),
-            Text(statusText, style: AppTextStyles.body),
+            const Text('Local only — AT Protocol pending',
+                style: AppTextStyles.body),
           ],
         );
       },

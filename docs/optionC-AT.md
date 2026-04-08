@@ -218,24 +218,30 @@ These use Sailor's own namespace (`au.sailor.*`), not Smoke Signal's. We own the
       "type": "object",
       "required": ["latitude", "longitude", "timestamp"],
       "properties": {
-        "latitude": { "type": "number" },
-        "longitude": { "type": "number" },
+        "latitude": {
+          "type": "string",
+          "description": "Decimal degrees as string (e.g. '-31.974400'). Strings required — PDS CBOR rejects float values (validated in spike)."
+        },
+        "longitude": {
+          "type": "string",
+          "description": "Decimal degrees as string (e.g. '115.840000')."
+        },
         "timestamp": {
           "type": "string",
           "format": "datetime",
           "description": "When this GPS fix was captured."
         },
         "speedKnots": {
-          "type": "number",
-          "description": "Speed over ground in knots."
+          "type": "string",
+          "description": "Speed over ground in knots as string (e.g. '6.5')."
         },
         "headingDeg": {
-          "type": "number",
-          "description": "Heading in degrees true north (0-360)."
+          "type": "string",
+          "description": "Heading in degrees true north as string (e.g. '225.0')."
         },
         "accuracy": {
-          "type": "number",
-          "description": "Horizontal accuracy in metres."
+          "type": "string",
+          "description": "Horizontal accuracy in metres as string (e.g. '5.0')."
         }
       }
     }
@@ -245,6 +251,7 @@ These use Sailor's own namespace (`au.sailor.*`), not Smoke Signal's. We own the
 
 **Design decisions**:
 - **Batched, not real-time**: GPS points are buffered on-device (every 5–10s) and uploaded as a batch record (every 60s or when connectivity allows). This is offshore-friendly — works with intermittent signal.
+- **Strings, not floats**: PDS CBOR encoder rejects Dart `double` values in record maps (validated in [spike](./spike_results.md)). All numeric fields (lat, lng, speed, heading, accuracy) are stored as strings and parsed to `double` in the app layer. AT Protocol Lexicon `"type": "number"` may work in JSON but fails at CBOR level.
 - **100 points per record**: At 10s intervals, one record covers ~16 minutes. A 3-hour race produces ~11 records per yacht. Well within PDS storage and the 1MB record size limit.
 - **eventUri links to Smoke Signal event**: Position data is anchored to an event, so any client can aggregate positions per-event by querying PDS repos for `au.sailor.yacht.position` records referencing a given event URI.
 - **No tracking without event context**: Positions only exist tied to an event. No ambient surveillance.
@@ -293,8 +300,14 @@ These use Sailor's own namespace (`au.sailor.*`), not Smoke Signal's. We own the
     "geoTag": {
       "type": "object",
       "properties": {
-        "latitude": { "type": "number" },
-        "longitude": { "type": "number" }
+        "latitude": {
+          "type": "string",
+          "description": "Decimal degrees as string. PDS CBOR rejects floats."
+        },
+        "longitude": {
+          "type": "string",
+          "description": "Decimal degrees as string."
+        }
       }
     }
   }

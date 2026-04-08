@@ -1,10 +1,11 @@
 name: ev_protocol_veilid
 description: >
-  Concrete implementation of ev_protocol interfaces using Veilid DHT
-  and local SQLite (Drift) for offline-first data persistence.
+  Local SQLite (Drift) database layer for Sailor.
+  Post-cleanup: Veilid DHT removed. Retained for package name compatibility
+  until ev_db rename is done.
 publish_to: none
 
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.7.1
@@ -16,11 +17,6 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   sqlite3_flutter_libs: ^0.6.0+eol
-  veilid:
-    git:
-      url: https://gitlab.com/veilid/veilid.git
-      path: veilid-flutter
-      ref: main
 
 dev_dependencies:
   build_runner: ^2.13.1

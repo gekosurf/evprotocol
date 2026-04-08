@@ -1,7 +1,7 @@
 name: sailor
-description: "A new Flutter project."
+description: "Sailor — event discovery for the sailing community."
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ^3.11.4
@@ -20,11 +20,6 @@ dependencies:
   path_provider: ^2.1.5
   riverpod_annotation: ^4.0.2
   sqlite3_flutter_libs: ^0.6.0+eol
-  veilid:
-    git:
-      url: https://gitlab.com/veilid/veilid.git
-      path: veilid-flutter
-      ref: main
 
 dev_dependencies:
   flutter_test:

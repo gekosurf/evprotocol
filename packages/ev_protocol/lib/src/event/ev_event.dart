@@ -1,8 +1,6 @@
 import '../core/ev_dht_key.dart';
 import '../core/ev_pubkey.dart';
 import '../core/ev_timestamp.dart';
-import '../media/ev_media_reference.dart';
-import '../payment/ev_payment_intent.dart';
 
 /// An event record in the EV Protocol.
 ///
@@ -38,8 +36,9 @@ class EvEvent {
   /// Tags for discovery.
   final List<String> tags;
 
-  /// Cover image reference.
-  final EvMediaReference? coverImageRef;
+  /// Cover image CID (AT Protocol blob reference).
+  /// Phase 2 will use actual blob CIDs.
+  final String? coverImageCid;
 
   /// Ticketing configuration.
   final EvTicketing? ticketing;
@@ -75,7 +74,7 @@ class EvEvent {
     this.location,
     this.category,
     this.tags = const [],
-    this.coverImageRef,
+    this.coverImageCid,
     this.ticketing,
     this.visibility = EvEventVisibility.public_,
     this.maxCapacity,
@@ -96,7 +95,7 @@ class EvEvent {
     EvEventLocation? location,
     String? category,
     List<String>? tags,
-    EvMediaReference? coverImageRef,
+    String? coverImageCid,
     EvTicketing? ticketing,
     EvEventVisibility? visibility,
     int? maxCapacity,
@@ -115,7 +114,7 @@ class EvEvent {
       location: location ?? this.location,
       category: category ?? this.category,
       tags: tags ?? this.tags,
-      coverImageRef: coverImageRef ?? this.coverImageRef,
+      coverImageCid: coverImageCid ?? this.coverImageCid,
       ticketing: ticketing ?? this.ticketing,
       visibility: visibility ?? this.visibility,
       maxCapacity: maxCapacity ?? this.maxCapacity,
@@ -138,7 +137,7 @@ class EvEvent {
         if (location != null) 'location': location!.toJson(),
         if (category != null) 'category': category,
         if (tags.isNotEmpty) 'tags': tags,
-        if (coverImageRef != null) 'coverImageRef': coverImageRef!.toJson(),
+        if (coverImageCid != null) 'coverImageCid': coverImageCid,
         if (ticketing != null) 'ticketing': ticketing!.toJson(),
         'visibility': visibility.name,
         if (maxCapacity != null) 'maxCapacity': maxCapacity,
@@ -164,10 +163,7 @@ class EvEvent {
           : null,
       category: json['category'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
-      coverImageRef: json['coverImageRef'] != null
-          ? EvMediaReference.fromJson(
-              json['coverImageRef'] as Map<String, dynamic>)
-          : null,
+      coverImageCid: json['coverImageCid'] as String?,
       ticketing: json['ticketing'] != null
           ? EvTicketing.fromJson(json['ticketing'] as Map<String, dynamic>)
           : null,
@@ -389,3 +385,32 @@ class EvRefundPolicy {
 }
 
 enum EvRefundType { full, partial, none, conditional }
+
+/// Payment method accepted for a ticketed event.
+///
+/// Previously in payment module — inlined here after cleanup.
+class EvPaymentMethod {
+  final String type;
+  final String? destination;
+  final String? checkoutUrl;
+
+  const EvPaymentMethod({
+    required this.type,
+    this.destination,
+    this.checkoutUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        if (destination != null) 'destination': destination,
+        if (checkoutUrl != null) 'checkoutUrl': checkoutUrl,
+      };
+
+  factory EvPaymentMethod.fromJson(Map<String, dynamic> json) {
+    return EvPaymentMethod(
+      type: json['type'] as String,
+      destination: json['destination'] as String?,
+      checkoutUrl: json['checkoutUrl'] as String?,
+    );
+  }
+}

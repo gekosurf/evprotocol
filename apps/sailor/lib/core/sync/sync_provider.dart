@@ -1,57 +1,14 @@
-import 'dart:async';
-
-import 'package:ev_protocol/ev_protocol.dart';
-import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sailor/core/db/database_provider.dart';
-import 'package:sailor/features/events/presentation/providers/event_providers.dart';
 
-/// The Veilid node provider — can be overridden for testing.
+/// Placeholder providers for the sync layer.
 ///
-/// In production, this is overridden in main.dart with the initialized
-/// [RealVeilidNode]. In tests, the default [MockVeilidNode] is used.
-final veilidNodeProvider = Provider<VeilidNodeInterface>((ref) {
-  return MockVeilidNode();
-});
-
-/// Sync service provider — single instance, starts on first access.
+/// Phase 2 will replace these with AT Protocol sync:
+/// - AtSyncService (background PDS sync)
+/// - Offline queue retry
 ///
-/// Reads the Veilid node from [veilidNodeProvider], which defaults to
-/// MockVeilidNode but can be overridden with RealVeilidNode.
-final syncServiceProvider = Provider<VeilidSyncService>((ref) {
-  final db = ref.watch(databaseProvider);
-  final node = ref.watch(veilidNodeProvider);
-  final service = VeilidSyncService(db: db, node: node);
+/// For now, the app works fully offline via Drift SQLite.
 
-  // Refresh the event list UI when new events are discovered from peers
-  service.onEventsDiscovered = (count) {
-    ref.invalidate(myEventsProvider);
-  };
-
-  service.startSync();
-  ref.onDispose(service.dispose);
-  return service;
-});
-
-/// Live pending sync count — refreshes every 2 seconds.
-///
-/// Displays how many queue items are still waiting to be synced.
+/// Live pending sync count — always 0 until AT Protocol sync is implemented.
 final pendingSyncCountProvider = StreamProvider<int>((ref) {
-  final service = ref.watch(syncServiceProvider);
-  return Stream.periodic(
-    const Duration(seconds: 2),
-    (_) => service.pendingSyncCount(),
-  ).asyncMap((future) => future);
-});
-
-/// Stream of sync events for UI feedback (toast, status indicators).
-final syncEventsProvider = StreamProvider<EvSyncEvent>((ref) {
-  final service = ref.watch(syncServiceProvider);
-  return service.watchSyncEvents();
-});
-
-/// Whether the Veilid node reports itself as online.
-final syncOnlineProvider = FutureProvider<bool>((ref) {
-  final service = ref.watch(syncServiceProvider);
-  return service.isOnline();
+  return Stream.value(0);
 });
