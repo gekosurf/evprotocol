@@ -215,12 +215,24 @@ class DriftEventRepository implements EventRepository {
   Future<EventPage> getMyEvents({String? cursor, int limit = 20}) async {
     final offset = cursor != null ? int.tryParse(cursor) ?? 0 : 0;
 
+    // Diagnostic: count all events in the table
+    final allCount = await _db.select(_db.cachedEvents).get();
+    // ignore: avoid_print
+    print('[DB] 📊 Total events in cachedEvents table: ${allCount.length}');
+    for (final e in allCount) {
+      // ignore: avoid_print
+      print('[DB]   → id=${e.id} name="${e.name}" dhtKey=${e.dhtKey} creator=${e.creatorPubkey}');
+    }
+
     final rows = await (_db.select(_db.cachedEvents)
           ..orderBy([
             (t) => OrderingTerm(expression: t.startAt, mode: OrderingMode.asc)
           ])
           ..limit(limit + 1, offset: offset))
         .get();
+
+    // ignore: avoid_print
+    print('[DB] 📋 getMyEvents returning ${rows.length} rows');
 
     final hasMore = rows.length > limit;
     final eventsToReturn = hasMore ? rows.take(limit).toList() : rows;
