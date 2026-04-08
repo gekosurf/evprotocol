@@ -51,18 +51,26 @@ class DriftEventRepository implements EventRepository {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
+    final did = 'local_user'; // Mocked for local-only Drift sync
+    final now = DateTime.now().toUtc();
+    final dhtKey = 'event_${DateTime.now().millisecondsSinceEpoch}';
+
     final event = EvEvent(
-      dhtKey: EvDhtKey('local-${DateTime.now().millisecondsSinceEpoch}'), // Temp key until Veilid publish
-      creatorPubkey: _currentUserPubkey,
+      dhtKey: EvDhtKey(dhtKey),
+      creatorPubkey: EvPubkey(did),
       name: name,
       description: description,
       startAt: EvTimestamp.parse(startAt.toUtc().toIso8601String()),
-      endAt: endAt != null ? EvTimestamp.parse(endAt.toUtc().toIso8601String()) : null,
+      endAt: endAt != null
+          ? EvTimestamp.parse(endAt.toUtc().toIso8601String())
+          : null,
       location: location,
+      category: category,
       tags: tags,
-      createdAt: EvTimestamp.now(),
+      createdAt: EvTimestamp.parse(now.toIso8601String()),
       visibility: EvEventVisibility.public_,
     );
 

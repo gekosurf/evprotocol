@@ -35,6 +35,7 @@ class CreateEventUseCase {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) {
     if (name.trim().isEmpty) {
@@ -52,6 +53,7 @@ class CreateEventUseCase {
       startAt: startAt,
       endAt: endAt,
       location: location,
+      category: category,
       tags: tags,
     );
   }

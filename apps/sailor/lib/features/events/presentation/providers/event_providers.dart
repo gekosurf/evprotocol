@@ -63,6 +63,7 @@ class EventListNotifier extends AsyncNotifier<EventPage> {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
     final useCase = ref.read(createEventUseCaseProvider);
@@ -72,10 +73,11 @@ class EventListNotifier extends AsyncNotifier<EventPage> {
       startAt: startAt,
       endAt: endAt,
       location: location,
+      category: category,
       tags: tags,
     );
-    // Refresh the list
-    await refresh();
+    // Refresh the list after creation
+    refresh();
   }
 }
 
@@ -126,6 +128,7 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
     final useCase = ref.read(createEventUseCaseProvider);
@@ -135,6 +138,7 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
       startAt: startAt,
       endAt: endAt,
       location: location,
+      category: category,
       tags: tags,
     );
     await refresh();

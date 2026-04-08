@@ -24,6 +24,7 @@ abstract class EventRepository {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags,
   });
 

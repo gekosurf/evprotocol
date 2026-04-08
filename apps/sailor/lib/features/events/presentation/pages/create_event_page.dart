@@ -16,6 +16,7 @@ class CreateEventPage extends ConsumerStatefulWidget {
 
 class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   final _nameController = TextEditingController();
+  final _categoryController = TextEditingController();
   final _descController = TextEditingController();
   final _locationController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -26,6 +27,7 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _categoryController.dispose();
     _descController.dispose();
     _locationController.dispose();
     super.dispose();
@@ -87,6 +89,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
 
       await ref.read(myEventsProvider.notifier).createEvent(
             name: _nameController.text,
+            category: _categoryController.text.trim().isEmpty
+                ? null
+                : _categoryController.text.trim(),
             description: _descController.text.isEmpty
                 ? null
                 : _descController.text,

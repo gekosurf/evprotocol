@@ -34,6 +34,7 @@ class AtEventRepositoryAdapter implements EventRepository {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
     return _atRepo.createEvent(
@@ -42,6 +43,7 @@ class AtEventRepositoryAdapter implements EventRepository {
       startAt: startAt,
       endAt: endAt,
       location: location,
+      category: category,
       tags: tags,
     );
   }

@@ -48,26 +48,25 @@ class StubEventRepository implements EventRepository {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-
-    final event = EvEvent(
-      creatorPubkey: _currentUserPubkey,
+    await Future.delayed(const Duration(milliseconds: 500));
+    final newEvent = EvEvent(
+      dhtKey: EvDhtKey('mock_${DateTime.now().millisecondsSinceEpoch}'),
+      creatorPubkey: EvPubkey('stub_user'),
       name: name,
       description: description,
-      startAt: EvTimestamp.parse(startAt.toUtc().toIso8601String()),
-      endAt: endAt != null
-          ? EvTimestamp.parse(endAt.toUtc().toIso8601String())
-          : null,
+      startAt: EvTimestamp.parse(startAt.toIso8601String()),
+      endAt: endAt != null ? EvTimestamp.parse(endAt.toIso8601String()) : null,
       location: location,
+      category: category,
       tags: tags,
-      createdAt: EvTimestamp.now(),
+      createdAt: EvTimestamp.parse(DateTime.now().toIso8601String()),
       visibility: EvEventVisibility.public_,
     );
-
-    _events.insert(0, event);
-    return event;
+    _events.insert(0, newEvent);
+    return newEvent;
   }
 
   @override

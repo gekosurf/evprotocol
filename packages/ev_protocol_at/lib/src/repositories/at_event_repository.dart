@@ -120,6 +120,7 @@ class AtEventRepository {
     required DateTime startAt,
     DateTime? endAt,
     EvEventLocation? location,
+    String? category,
     List<String> tags = const [],
   }) async {
     final did = _auth.did ?? 'local';
@@ -138,6 +139,7 @@ class AtEventRepository {
           ? EvTimestamp.parse(endAt.toUtc().toIso8601String())
           : null,
       location: location,
+      category: category,
       tags: tags,
       createdAt: EvTimestamp.parse(now.toIso8601String()),
       visibility: EvEventVisibility.public_,

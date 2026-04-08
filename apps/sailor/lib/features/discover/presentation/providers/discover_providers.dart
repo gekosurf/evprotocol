@@ -78,6 +78,10 @@ class DiscoverEventsNotifier extends AsyncNotifier<EventPage> {
 
 /// All distinct categories auto-derived from cached events.
 final categoriesProvider = FutureProvider<List<String>>((ref) async {
+  // Watch events to automatically rebuild categories when an event is added/refreshed
+  ref.watch(discoverEventsProvider);
+  ref.watch(myEventsProvider);
+
   // Ensure seed data exists before querying categories
   await ref.watch(seedDataProvider.future);
   final repo = ref.read(eventRepositoryProvider);
