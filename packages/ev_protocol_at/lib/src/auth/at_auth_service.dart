@@ -20,6 +20,9 @@ class AtAuthService {
   /// The current user's DID, null if not authenticated.
   String? get did => _client?.session?.did;
 
+  /// The current user's handle, null if not authenticated.
+  String? get handle => _client?.session?.handle;
+
   /// Whether the user is currently authenticated.
   bool get isAuthenticated => _client != null;
 

@@ -1,5 +1,6 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/db/database_provider.dart';
 import 'package:sailor/features/auth/data/repositories/drift_auth_repository.dart';
 import 'package:sailor/features/auth/domain/repositories/auth_repository.dart';
@@ -32,9 +33,28 @@ final restoreIdentityUseCaseProvider =
 
 // === AUTH STATE ===
 /// Watches the current identity. Null means not authenticated.
+/// Checks both local SQLite identity AND AT Protocol session.
 final authStateProvider = FutureProvider<EvIdentity?>((ref) async {
+  // Check local identity first
   final useCase = ref.watch(getCurrentIdentityUseCaseProvider);
-  return useCase();
+  final localIdentity = await useCase();
+  if (localIdentity != null) return localIdentity;
+
+  // Fall back to AT Protocol session
+  final isAtAuth = ref.watch(atAuthStateProvider);
+  if (isAtAuth) {
+    final auth = ref.read(atAuthServiceProvider);
+    final did = auth.did ?? 'unknown';
+    final handle = auth.handle ?? did;
+    return EvIdentity(
+      pubkey: EvPubkey(did),
+      displayName: handle,
+      bio: 'Signed in via AT Protocol',
+      createdAt: EvTimestamp.now(),
+    );
+  }
+
+  return null;
 });
 
 /// Notifier for creating an identity during onboarding.
