@@ -2,32 +2,20 @@ PODS:
   - Flutter (1.0.0)
   - integration_test (0.0.1):
     - Flutter
-  - system_info_plus (0.0.1):
-    - Flutter
-  - veilid (0.0.1):
-    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
-  - system_info_plus (from `.symlinks/plugins/system_info_plus/ios`)
-  - veilid (from `.symlinks/plugins/veilid/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   integration_test:
     :path: ".symlinks/plugins/integration_test/ios"
-  system_info_plus:
-    :path: ".symlinks/plugins/system_info_plus/ios"
-  veilid:
-    :path: ".symlinks/plugins/veilid/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
-  system_info_plus: 555ce7047fbbf29154726db942ae785c29211740
-  veilid: a28ba1cf50b1f4035bb4350676b6ee7876733fd7
 
 PODFILE CHECKSUM: 61d8425c72c13ea6a97db871586e0f52e9071571
 
