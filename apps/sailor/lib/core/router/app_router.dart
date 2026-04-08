@@ -1,6 +1,7 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sailor/features/auth/presentation/pages/at_login_page.dart';
 import 'package:sailor/features/auth/presentation/pages/backup_key_page.dart';
 import 'package:sailor/features/auth/presentation/pages/create_identity_page.dart';
 import 'package:sailor/features/auth/presentation/pages/welcome_page.dart';
@@ -15,6 +16,7 @@ abstract final class AppRoutes {
   static const String welcome = '/welcome';
   static const String createIdentity = '/create-identity';
   static const String backupKey = '/backup-key';
+  static const String atLogin = '/at-login';
   static const String home = '/';
   static const String eventDetail = '/event';
   static const String createEvent = '/create-event';
@@ -31,7 +33,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.value != null;
       final isAuthRoute = state.matchedLocation == AppRoutes.welcome ||
           state.matchedLocation == AppRoutes.createIdentity ||
-          state.matchedLocation == AppRoutes.backupKey;
+          state.matchedLocation == AppRoutes.backupKey ||
+          state.matchedLocation == AppRoutes.atLogin;
 
       if (!isAuthenticated && !isAuthRoute) {
         return AppRoutes.welcome;
@@ -45,6 +48,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.welcome,
         builder: (context, state) => const WelcomePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.atLogin,
+        builder: (context, state) => const AtLoginPage(),
       ),
       GoRoute(
         path: AppRoutes.createIdentity,

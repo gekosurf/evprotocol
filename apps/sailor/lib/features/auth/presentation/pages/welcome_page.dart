@@ -47,24 +47,23 @@ class WelcomePage extends StatelessWidget {
 
               const Spacer(flex: 4),
 
-              // Create Identity
+              // Sign in with Bluesky (AT Protocol)
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => context.push(AppRoutes.createIdentity),
-                  child: const Text('Create Identity'),
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push(AppRoutes.atLogin),
+                  icon: const Icon(Icons.cloud_outlined),
+                  label: const Text('Sign in with Bluesky'),
                 ),
               ),
               const SizedBox(height: 12),
 
-              // Restore from backup
+              // Create local identity (offline-only)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {
-                    // TODO: Restore flow
-                  },
-                  child: const Text('Restore from Backup'),
+                  onPressed: () => context.push(AppRoutes.createIdentity),
+                  child: const Text('Use Offline Only'),
                 ),
               ),
 
