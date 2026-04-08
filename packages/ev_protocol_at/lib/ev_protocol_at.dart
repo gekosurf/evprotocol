@@ -11,6 +11,7 @@ export 'src/auth/at_session_store.dart';
 // Lexicon-aligned models
 export 'src/models/smoke_signal_event.dart';
 export 'src/models/smoke_signal_rsvp.dart';
+export 'src/models/smoke_signal_sailor.dart';
 
 // Mappers
 export 'src/mappers/event_mapper.dart';

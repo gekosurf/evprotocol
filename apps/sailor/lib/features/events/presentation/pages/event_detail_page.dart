@@ -2,6 +2,8 @@ import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sailor/core/router/app_router.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
 import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
@@ -197,6 +199,52 @@ class EventDetailPage extends ConsumerWidget {
                 icon: const Icon(Icons.share_outlined),
                 label: const Text('Share Event'),
               ),
+            ),
+
+            const SizedBox(height: 24),
+            const Divider(color: AppColors.divider),
+            const SizedBox(height: 16),
+
+            // Sailing-specific actions
+            const Text('SAILING', style: AppTextStyles.label),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final key = event.dhtKey?.value ?? '';
+                      context.push(
+                        '${AppRoutes.tracking}/$key',
+                        extra: {
+                          'eventAtUri': key,
+                          'eventName': event.name,
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.sailing, size: 18),
+                    label: const Text('Track'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final key = event.dhtKey?.value ?? '';
+                      context.push(
+                        '${AppRoutes.eventPhotos}/$key',
+                        extra: {
+                          'eventAtUri': key,
+                          'eventName': event.name,
+                          'participantDids': <String>[],
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Photos'),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 48),
