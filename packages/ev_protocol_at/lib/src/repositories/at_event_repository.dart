@@ -6,6 +6,7 @@ import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
 import 'package:flutter/foundation.dart';
 
 import '../auth/at_auth_service.dart';
+import '../auth/cross_pds_resolver.dart';
 import '../lexicon_nsids.dart';
 import '../mappers/event_mapper.dart';
 import '../mappers/rsvp_mapper.dart';
@@ -105,6 +106,25 @@ class AtEventRepository {
         createdAt: EvTimestamp.parse(row.createdAt.toIso8601String()),
       );
     }).toList();
+  }
+
+  /// Get all unique DIDs seen in cached events and RSVPs.
+  ///
+  /// Used for RSVP auto-discovery: any new DID that appears here
+  /// can be auto-added to the connections list.
+  Future<Set<String>> getAllKnownDids() async {
+    final eventDids = await _db.customSelect(
+      'SELECT DISTINCT creator_pubkey FROM cached_events',
+    ).get();
+
+    final rsvpDids = await _db.customSelect(
+      'SELECT DISTINCT attendee_pubkey FROM cached_rsvps',
+    ).get();
+
+    return {
+      ...eventDids.map((r) => r.read<String>('creator_pubkey')),
+      ...rsvpDids.map((r) => r.read<String>('attendee_pubkey')),
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -299,74 +319,21 @@ class AtEventRepository {
     final client = _auth.client;
     if (client == null) return 0;
 
+    final selfDid = _auth.did!;
     // Deduplicated list: self first, then connections
-    final didsToScan = <String>{_auth.did!, ...additionalDids}.toList();
+    final didsToScan = <String>{selfDid, ...additionalDids}.toList();
     int totalCount = 0;
 
     for (final did in didsToScan) {
+      final isSelf = did == selfDid;
       try {
         // Refresh events for this DID
-        final eventResult = await client.atproto.repo.listRecords(
-          repo: did,
-          collection: LexiconNsids.event,
-        );
-
-        for (final record in eventResult.data.records) {
-          final smokeSignal = SmokeSignalEvent.fromRecord(record.value);
-          final event = EventMapper.fromSmokeSignal(
-            smokeSignal,
-            atUri: record.uri.toString(),
-            creatorDid: did, // Use actual owner DID, not self
-          );
-          await _insertOrUpdateEventInDb(event);
-          totalCount++;
-        }
+        totalCount += await _refreshEventsForDid(client, did, isSelf);
 
         // Refresh RSVPs for this DID
-        try {
-          final rsvpResult = await client.atproto.repo.listRecords(
-            repo: did,
-            collection: LexiconNsids.rsvp,
-          );
+        await _refreshRsvpsForDid(client, did, isSelf);
 
-          for (final record in rsvpResult.data.records) {
-            final smokeSignal = SmokeSignalRsvp.fromRecord(record.value);
-            final rsvp = RsvpMapper.fromSmokeSignal(
-              smokeSignal,
-              atUri: record.uri.toString(),
-              attendeeDid: did, // Use actual attendee DID
-            );
-
-            final now = DateTime.now();
-            await _db.into(_db.cachedRsvps).insert(
-              CachedRsvpsCompanion.insert(
-                eventDhtKey: rsvp.eventDhtKey.value,
-                attendeePubkey: rsvp.attendeePubkey.value,
-                status: rsvp.status.name,
-                guestCount: Value(rsvp.guestCount),
-                createdAt: DateTime.parse(rsvp.createdAt.toIso8601()),
-                lastSyncedAt: now,
-                isDirty: const Value(false),
-              ),
-              onConflict: DoUpdate(
-                (old) => CachedRsvpsCompanion(
-                  status: Value(rsvp.status.name),
-                  guestCount: Value(rsvp.guestCount),
-                  lastSyncedAt: Value(now),
-                  isDirty: const Value(false),
-                ),
-                target: [
-                  _db.cachedRsvps.eventDhtKey,
-                  _db.cachedRsvps.attendeePubkey,
-                ],
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('[AtSync] RSVP refresh failed for $did: $e');
-        }
-
-        debugPrint('[AtSync] Scanned $did');
+        debugPrint('[AtSync] Scanned $did${isSelf ? ' (self)' : ' (cross-PDS)'}');
       } catch (e) {
         debugPrint('[AtSync] PDS scan failed for $did: $e');
       }
@@ -384,6 +351,123 @@ class AtEventRepository {
 
     debugPrint('[AtSync] Refreshed $totalCount events from ${didsToScan.length} PDS repos');
     return totalCount;
+  }
+
+  /// Refresh events for a single DID.
+  /// Uses direct SDK call for self, CrossPdsResolver for others.
+  Future<int> _refreshEventsForDid(dynamic client, String did, bool isSelf) async {
+    int count = 0;
+
+    if (isSelf) {
+      // Self: use authenticated SDK client (same PDS)
+      final result = await client.atproto.repo.listRecords(
+        repo: did,
+        collection: LexiconNsids.event,
+      );
+      for (final record in result.data.records) {
+        final smokeSignal = SmokeSignalEvent.fromRecord(record.value);
+        final event = EventMapper.fromSmokeSignal(
+          smokeSignal,
+          atUri: record.uri.toString(),
+          creatorDid: did,
+        );
+        await _insertOrUpdateEventInDb(event);
+        count++;
+      }
+    } else {
+      // Cross-PDS: resolve their PDS and query directly
+      final records = await CrossPdsResolver.listRecords(
+        did: did,
+        collection: LexiconNsids.event,
+      );
+      for (final record in records) {
+        final uri = record['uri'] as String? ?? '';
+        final value = record['value'] as Map<String, dynamic>? ?? {};
+        final smokeSignal = SmokeSignalEvent.fromRecord(value);
+        final event = EventMapper.fromSmokeSignal(
+          smokeSignal,
+          atUri: uri,
+          creatorDid: did,
+        );
+        await _insertOrUpdateEventInDb(event);
+        count++;
+      }
+    }
+
+    return count;
+  }
+
+  /// Refresh RSVPs for a single DID.
+  Future<void> _refreshRsvpsForDid(dynamic client, String did, bool isSelf) async {
+    try {
+      if (isSelf) {
+        final result = await client.atproto.repo.listRecords(
+          repo: did,
+          collection: LexiconNsids.rsvp,
+        );
+        for (final record in result.data.records) {
+          final smokeSignal = SmokeSignalRsvp.fromRecord(record.value);
+          final rsvp = RsvpMapper.fromSmokeSignal(
+            smokeSignal,
+            atUri: record.uri.toString(),
+            attendeeDid: did,
+          );
+          await _upsertRsvpToDb(rsvp);
+        }
+      } else {
+        final records = await CrossPdsResolver.listRecords(
+          did: did,
+          collection: LexiconNsids.rsvp,
+        );
+        for (final record in records) {
+          final uri = record['uri'] as String? ?? '';
+          final value = record['value'] as Map<String, dynamic>? ?? {};
+          final smokeSignal = SmokeSignalRsvp.fromRecord(value);
+
+          // Skip orphaned RSVPs that reference local-* event keys
+          if (smokeSignal.eventUri.startsWith('local-')) {
+            continue;
+          }
+
+          final rsvp = RsvpMapper.fromSmokeSignal(
+            smokeSignal,
+            atUri: uri,
+            attendeeDid: did,
+          );
+          await _upsertRsvpToDb(rsvp);
+        }
+      }
+    } catch (e) {
+      debugPrint('[AtSync] RSVP refresh failed for $did: $e');
+    }
+  }
+
+  /// Upsert an RSVP record into the local cache.
+  Future<void> _upsertRsvpToDb(EvRsvp rsvp) async {
+    final now = DateTime.now();
+    await _db.into(_db.cachedRsvps).insert(
+      CachedRsvpsCompanion.insert(
+        eventDhtKey: rsvp.eventDhtKey.value,
+        attendeePubkey: rsvp.attendeePubkey.value,
+        status: rsvp.status.name,
+        guestCount: Value(rsvp.guestCount),
+        createdAt: DateTime.parse(rsvp.createdAt.toIso8601()),
+        lastSyncedAt: now,
+        isDirty: const Value(false),
+      ),
+      onConflict: DoUpdate(
+        (old) => CachedRsvpsCompanion(
+          status: Value(rsvp.status.name),
+          guestCount: Value(rsvp.guestCount),
+          lastSyncedAt: Value(now),
+          isDirty: const Value(false),
+        ),
+        target: [
+          _db.cachedRsvps.eventDhtKey,
+          _db.cachedRsvps.attendeePubkey,
+        ],
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════

@@ -112,7 +112,7 @@ class RsvpListSection extends ConsumerWidget {
 
 /// Provider that fetches RSVPs for a specific event.
 final eventRsvpsProvider =
-    FutureProvider.family<List<EvRsvp>, EvDhtKey>((ref, eventKey) async {
+    FutureProvider.autoDispose.family<List<EvRsvp>, EvDhtKey>((ref, eventKey) async {
   final repo = ref.read(eventRepositoryProvider);
   return repo.getEventRsvps(eventKey);
 });

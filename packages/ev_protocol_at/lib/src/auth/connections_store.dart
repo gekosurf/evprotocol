@@ -32,15 +32,15 @@ class Connection {
 
 /// Persists the user's connection list to a local JSON file.
 ///
-/// File location: `~/.sailor_connections.json`
-/// This is a simple, platform-agnostic store — no Keychain or Drift dependency.
+/// The directory path must be provided by the app layer (via path_provider)
+/// since iOS sandboxing prevents using Platform.environment['HOME'].
 class ConnectionsStore {
-  static const _fileName = '.sailor_connections.json';
+  static const _fileName = 'sailor_connections.json';
+  final String _directoryPath;
 
-  File get _file {
-    final home = Platform.environment['HOME'] ?? '.';
-    return File('$home/$_fileName');
-  }
+  ConnectionsStore(this._directoryPath);
+
+  File get _file => File('$_directoryPath/$_fileName');
 
   /// Load all stored connections.
   Future<List<Connection>> loadAll() async {

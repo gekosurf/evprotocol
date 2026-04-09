@@ -112,37 +112,43 @@ class PhotoService {
   }
 
   /// Get all photos for an event from multiple participants.
+  ///
+  /// Uses CrossPdsResolver for participants on different PDS servers.
   Future<List<EventPhoto>> getEventPhotos(
       String eventAtUri, List<String> participantDids) async {
     final client = _auth.client;
     if (client == null) return [];
 
+    final selfDid = _auth.did;
     final photos = <EventPhoto>[];
 
     for (final did in participantDids) {
       try {
-        final result = await client.atproto.repo.listRecords(
-          repo: did,
-          collection: LexiconNsids.photo,
-        );
-
-        for (final record in result.data.records) {
-          final ssPhoto = SmokeSignalPhoto.fromRecord(record.value);
-          if (ssPhoto.eventUri == eventAtUri) {
-            photos.add(EventPhoto(
-              eventUri: ssPhoto.eventUri,
-              atUri: record.uri.toString(),
-              blobRef: ssPhoto.image,
-              caption: ssPhoto.caption,
-              latitude: ssPhoto.latitude != null
-                  ? double.tryParse(ssPhoto.latitude!)
-                  : null,
-              longitude: ssPhoto.longitude != null
-                  ? double.tryParse(ssPhoto.longitude!)
-                  : null,
-              createdAt: DateTime.tryParse(ssPhoto.createdAt) ?? DateTime.now(),
-              authorDid: did,
-            ));
+        if (did == selfDid) {
+          // Self: use authenticated SDK client (same PDS)
+          final result = await client.atproto.repo.listRecords(
+            repo: did,
+            collection: LexiconNsids.photo,
+          );
+          for (final record in result.data.records) {
+            final ssPhoto = SmokeSignalPhoto.fromRecord(record.value);
+            if (ssPhoto.eventUri == eventAtUri) {
+              photos.add(_mapPhoto(ssPhoto, record.uri.toString(), did));
+            }
+          }
+        } else {
+          // Cross-PDS: resolve their PDS and query directly
+          final records = await CrossPdsResolver.listRecords(
+            did: did,
+            collection: LexiconNsids.photo,
+          );
+          for (final record in records) {
+            final uri = record['uri'] as String? ?? '';
+            final value = record['value'] as Map<String, dynamic>? ?? {};
+            final ssPhoto = SmokeSignalPhoto.fromRecord(value);
+            if (ssPhoto.eventUri == eventAtUri) {
+              photos.add(_mapPhoto(ssPhoto, uri, did));
+            }
           }
         }
       } catch (e) {
@@ -153,6 +159,23 @@ class PhotoService {
     // Sort newest first
     photos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return photos;
+  }
+
+  EventPhoto _mapPhoto(SmokeSignalPhoto ssPhoto, String atUri, String did) {
+    return EventPhoto(
+      eventUri: ssPhoto.eventUri,
+      atUri: atUri,
+      blobRef: ssPhoto.image,
+      caption: ssPhoto.caption,
+      latitude: ssPhoto.latitude != null
+          ? double.tryParse(ssPhoto.latitude!)
+          : null,
+      longitude: ssPhoto.longitude != null
+          ? double.tryParse(ssPhoto.longitude!)
+          : null,
+      createdAt: DateTime.tryParse(ssPhoto.createdAt) ?? DateTime.now(),
+      authorDid: did,
+    );
   }
 
   /// Retry pending uploads.

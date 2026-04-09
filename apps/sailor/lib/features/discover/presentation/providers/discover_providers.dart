@@ -1,4 +1,6 @@
+import 'package:ev_protocol_at/ev_protocol_at.dart';
 import 'package:ev_protocol_veilid/ev_protocol_veilid.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/db/database_provider.dart';
@@ -39,6 +41,15 @@ class DiscoverEventsNotifier extends AsyncNotifier<EventPage> {
     // Ensure seed data is loaded before querying
     await ref.watch(seedDataProvider.future);
 
+    // Auto-refresh from PDS on cold start (non-blocking on failure)
+    try {
+      final atRepo = ref.read(atEventRepositoryProvider);
+      final connectionDids = await ref.read(connectionDidsProvider.future);
+      await atRepo.refreshFromPds(additionalDids: connectionDids);
+    } catch (e) {
+      debugPrint('[Discover] Auto-refresh failed: $e');
+    }
+
     // Watch search state — rebuild when it changes
     final query = ref.watch(searchQueryProvider);
     final category = ref.watch(selectedCategoryProvider);
@@ -61,7 +72,35 @@ class DiscoverEventsNotifier extends AsyncNotifier<EventPage> {
       final connectionDids = await ref.read(connectionDidsProvider.future);
       await atRepo.refreshFromPds(additionalDids: connectionDids);
 
-      // Step 2: Reload from local cache
+      // Step 2: RSVP auto-discovery — auto-add new DIDs from RSVPs
+      try {
+        final knownDids = await atRepo.getAllKnownDids();
+        final existingConnections =
+            (await ref.read(connectionsProvider.future)).map((c) => c.did).toSet();
+        final auth = ref.read(atAuthServiceProvider);
+        final selfDid = auth.did ?? '';
+
+        final newDids = knownDids
+            .difference(existingConnections)
+            .where((d) => d != selfDid && d.startsWith('did:'));
+
+        if (newDids.isNotEmpty) {
+          final store = await ref.read(connectionsStoreProvider.future);
+          for (final did in newDids) {
+            await store.add(Connection(
+              handle: did, // DID as placeholder — we don't have the handle yet
+              did: did,
+              addedAt: DateTime.now(),
+            ));
+          }
+          ref.invalidate(connectionsProvider);
+          debugPrint('[AutoDiscovery] Added ${newDids.length} new connections from RSVPs');
+        }
+      } catch (e) {
+        debugPrint('[AutoDiscovery] Failed: $e');
+      }
+
+      // Step 3: Reload from local cache
       await ref.read(seedDataProvider.future);
       final query = ref.read(searchQueryProvider);
       final category = ref.read(selectedCategoryProvider);

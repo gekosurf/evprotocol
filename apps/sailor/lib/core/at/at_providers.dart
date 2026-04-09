@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ev_protocol_at/ev_protocol_at.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -182,14 +183,15 @@ final atLoginProvider =
 // CONNECTIONS — known Bluesky users to scan for events/RSVPs
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Connections store singleton.
-final connectionsStoreProvider = Provider<ConnectionsStore>((ref) {
-  return ConnectionsStore();
+/// Connections store singleton — uses app documents directory for cross-platform support.
+final connectionsStoreProvider = FutureProvider<ConnectionsStore>((ref) async {
+  final dir = await getApplicationDocumentsDirectory();
+  return ConnectionsStore(dir.path);
 });
 
 /// All current connections (auto-refreshes when invalidated).
 final connectionsProvider = FutureProvider<List<Connection>>((ref) async {
-  final store = ref.read(connectionsStoreProvider);
+  final store = await ref.read(connectionsStoreProvider.future);
   return store.loadAll();
 });
 
@@ -210,7 +212,7 @@ final addConnectionProvider =
   final result = await client.atproto.identity.resolveHandle(handle: handle);
   final did = result.data.did;
 
-  final store = ref.read(connectionsStoreProvider);
+  final store = await ref.read(connectionsStoreProvider.future);
   await store.add(Connection(
     handle: handle,
     did: did,
@@ -220,4 +222,50 @@ final addConnectionProvider =
   // Refresh the connections list
   ref.invalidate(connectionsProvider);
   debugPrint('[Connections] Added $handle → $did');
+});
+
+/// Import all Bluesky follows as connections in one tap.
+///
+/// Pulls the follow list once, deduplicates against existing connections,
+/// and bulk-adds them. Returns the count of new connections added.
+final importFollowsProvider = FutureProvider<int>((ref) async {
+  final auth = ref.read(atAuthServiceProvider);
+  final client = auth.client;
+  if (client == null) throw Exception('Not authenticated');
+
+  final store = await ref.read(connectionsStoreProvider.future);
+  final existingDids = (await store.loadAll()).map((c) => c.did).toSet();
+  final selfDid = auth.did!;
+
+  int added = 0;
+  String? cursor;
+
+  // Paginate through all follows
+  do {
+    final result = await client.graph.getFollows(
+      actor: selfDid,
+      cursor: cursor,
+    );
+
+    for (final follow in result.data.follows) {
+      final did = follow.did;
+      final handle = follow.handle;
+
+      if (did == selfDid || existingDids.contains(did)) continue;
+
+      await store.add(Connection(
+        handle: handle,
+        did: did,
+        addedAt: DateTime.now(),
+      ));
+      existingDids.add(did);
+      added++;
+    }
+
+    cursor = result.data.cursor;
+  } while (cursor != null);
+
+  ref.invalidate(connectionsProvider);
+  debugPrint('[Connections] Imported $added follows from Bluesky');
+  return added;
 });

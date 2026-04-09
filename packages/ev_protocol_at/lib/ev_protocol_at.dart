@@ -8,6 +8,7 @@ library ev_protocol_at;
 export 'src/auth/at_auth_service.dart';
 export 'src/auth/at_session_store.dart';
 export 'src/auth/connections_store.dart';
+export 'src/auth/cross_pds_resolver.dart';
 
 // Lexicon-aligned models
 export 'src/models/smoke_signal_event.dart';

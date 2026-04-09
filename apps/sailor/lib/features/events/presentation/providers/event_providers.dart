@@ -91,6 +91,13 @@ final myEventsProvider =
 class MyEventsNotifier extends AsyncNotifier<EventPage> {
   @override
   Future<EventPage> build() async {
+    // Auto-refresh from PDS on cold start
+    try {
+      final atRepo = ref.read(atEventRepositoryProvider);
+      final connectionDids = await ref.read(connectionDidsProvider.future);
+      await atRepo.refreshFromPds(additionalDids: connectionDids);
+    } catch (_) {}
+
     final query = ref.watch(searchQueryProvider);
     final category = ref.watch(selectedCategoryProvider);
     final repo = ref.read(eventRepositoryProvider);

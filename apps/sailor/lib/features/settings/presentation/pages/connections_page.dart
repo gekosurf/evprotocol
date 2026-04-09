@@ -1,4 +1,6 @@
+import 'package:ev_protocol_at/ev_protocol_at.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/theme/app_colors.dart';
@@ -15,6 +17,7 @@ class ConnectionsPage extends ConsumerStatefulWidget {
 class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
   final _handleController = TextEditingController();
   bool _isAdding = false;
+  bool _isImporting = false;
   String? _error;
 
   @override
@@ -33,8 +36,27 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
     });
 
     try {
-      await ref.read(addConnectionProvider(handle).future);
+      final auth = ref.read(atAuthServiceProvider);
+      final client = auth.client;
+      if (client == null) throw Exception('Not authenticated');
+
+      debugPrint('[Connections] Resolving handle: $handle');
+      final result = await client.atproto.identity.resolveHandle(
+        handle: handle,
+      ).timeout(const Duration(seconds: 10));
+      final did = result.data.did;
+      debugPrint('[Connections] Resolved $handle → $did');
+
+      final store = await ref.read(connectionsStoreProvider.future);
+      await store.add(Connection(
+        handle: handle,
+        did: did,
+        addedAt: DateTime.now(),
+      ));
+
+      ref.invalidate(connectionsProvider);
       _handleController.clear();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -44,8 +66,9 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
         );
       }
     } catch (e) {
+      debugPrint('[Connections] Add failed: $e');
       setState(() {
-        _error = 'Could not resolve "$handle". Check the handle and try again.';
+        _error = 'Failed: $e';
       });
     } finally {
       if (mounted) {
@@ -55,7 +78,7 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
   }
 
   Future<void> _removeConnection(String did, String handle) async {
-    final store = ref.read(connectionsStoreProvider);
+    final store = await ref.read(connectionsStoreProvider.future);
     await store.remove(did);
     ref.invalidate(connectionsProvider);
     if (mounted) {
@@ -68,6 +91,72 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
     }
   }
 
+  Future<void> _importFollows() async {
+    setState(() => _isImporting = true);
+    debugPrint('[Connections] Import follows started');
+    try {
+      final auth = ref.read(atAuthServiceProvider);
+      final client = auth.client;
+      if (client == null) throw Exception('Not authenticated');
+
+      final store = await ref.read(connectionsStoreProvider.future);
+      final existingDids = (await store.loadAll()).map((c) => c.did).toSet();
+      final selfDid = auth.did!;
+      debugPrint('[Connections] Self DID: $selfDid, existing: ${existingDids.length}');
+
+      int added = 0;
+      String? cursor;
+
+      do {
+        debugPrint('[Connections] Fetching follows page (cursor: $cursor)');
+        final result = await client.graph.getFollows(
+          actor: selfDid,
+          cursor: cursor,
+        ).timeout(const Duration(seconds: 15));
+
+        debugPrint('[Connections] Got ${result.data.follows.length} follows');
+
+        for (final follow in result.data.follows) {
+          if (follow.did == selfDid || existingDids.contains(follow.did)) continue;
+
+          await store.add(Connection(
+            handle: follow.handle,
+            did: follow.did,
+            addedAt: DateTime.now(),
+          ));
+          existingDids.add(follow.did);
+          added++;
+        }
+
+        cursor = result.data.cursor;
+      } while (cursor != null);
+
+      ref.invalidate(connectionsProvider);
+      debugPrint('[Connections] Imported $added follows');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Imported $added follows from Bluesky ✓'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[Connections] Import failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final connectionsAsync = ref.watch(connectionsProvider);
@@ -75,6 +164,24 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connections'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Share my handle',
+            onPressed: () {
+              final auth = ref.read(atAuthServiceProvider);
+              final handle = auth.handle ?? auth.did ?? 'unknown';
+              final shareText = 'Add me on Sailor: $handle';
+              Clipboard.setData(ClipboardData(text: shareText));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Handle copied — share it with your crew!'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -143,6 +250,27 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
                         style: AppTextStyles.label
                             .copyWith(color: AppColors.error)),
                   ],
+                  const SizedBox(height: 12),
+                  // Import follows button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: _isImporting ? null : _importFollows,
+                      icon: _isImporting
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.download_rounded, size: 18),
+                      label: Text(_isImporting
+                          ? 'Importing...'
+                          : 'Import from Bluesky Follows'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -174,7 +302,7 @@ class _ConnectionsPageState extends ConsumerState<ConnectionsPage> {
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 48),
                             child: Text(
-                              'Add a Bluesky handle above to start discovering their events and photos.',
+                              'Tap "Import from Bluesky Follows" above to automatically add everyone you follow.',
                               style: AppTextStyles.bodySecondary,
                               textAlign: TextAlign.center,
                             ),
