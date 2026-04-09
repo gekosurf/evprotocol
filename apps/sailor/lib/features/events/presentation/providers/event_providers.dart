@@ -1,6 +1,7 @@
 import 'package:ev_protocol/ev_protocol.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sailor/core/at/at_providers.dart';
+import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
 import 'package:sailor/features/discover/presentation/providers/search_providers.dart';
 import 'package:sailor/features/events/data/repositories/at_event_repository_adapter.dart';
 import 'package:sailor/features/events/domain/repositories/event_repository.dart';
@@ -120,6 +121,8 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
       }
       return repo.getMyEvents();
     });
+    // Refresh category chips after data changes
+    ref.invalidate(categoriesProvider);
   }
 
   Future<void> createEvent({
@@ -142,5 +145,7 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
       tags: tags,
     );
     await refresh();
+    // Refresh category chips after new event may have added a category
+    ref.invalidate(categoriesProvider);
   }
 }

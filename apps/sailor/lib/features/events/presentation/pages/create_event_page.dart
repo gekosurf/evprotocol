@@ -163,6 +163,21 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
 
                 const SizedBox(height: 20),
 
+                // Category
+                const Text('CATEGORY (OPTIONAL)', style: AppTextStyles.label),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _categoryController,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: AppTextStyles.body,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Sailing, Social, Racing',
+                    prefixIcon: Icon(Icons.category_outlined, size: 20),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
                 // Date and time row
                 const Text('DATE & TIME', style: AppTextStyles.label),
                 const SizedBox(height: 8),

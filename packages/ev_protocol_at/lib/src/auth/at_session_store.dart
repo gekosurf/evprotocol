@@ -26,12 +26,14 @@ class AtSessionStore {
     required String did,
     required String accessJwt,
     required String refreshJwt,
+    String? appPassword,
   }) async {
     _cached = SavedSession(
       handle: handle,
       did: did,
       accessJwt: accessJwt,
       refreshJwt: refreshJwt,
+      appPassword: appPassword,
     );
     await _onSave?.call(_cached!);
   }
@@ -56,11 +58,13 @@ class SavedSession {
   final String did;
   final String accessJwt;
   final String refreshJwt;
+  final String? appPassword;
 
   const SavedSession({
     required this.handle,
     required this.did,
     required this.accessJwt,
     required this.refreshJwt,
+    this.appPassword,
   });
 }

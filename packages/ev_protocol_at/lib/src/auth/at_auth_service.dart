@@ -41,12 +41,14 @@ class AtAuthService {
       _client = bsky.Bluesky.fromSession(session.data);
       final did = _client!.session!.did;
 
-      // Persist session for restart recovery
+      // Persist session + app password for restart recovery.
+      // App passwords are revocable, scoped tokens designed for this use case.
       await _store.save(
         handle: handle,
         did: did,
         accessJwt: session.data.accessJwt,
         refreshJwt: session.data.refreshJwt,
+        appPassword: appPassword,
       );
 
       debugPrint('[AtAuth] Authenticated as $handle ($did)');
@@ -64,19 +66,34 @@ class AtAuthService {
     final saved = await _store.load();
     if (saved == null) return false;
 
+    // Need the stored app password to create a fresh session
+    if (saved.appPassword == null || saved.appPassword!.isEmpty) {
+      debugPrint('[AtAuth] No stored app password, cannot restore session');
+      await _store.clear();
+      return false;
+    }
+
     try {
-      // Try refreshing the session token
       final session = await atproto.createSession(
         identifier: saved.handle,
-        password: '', // Can't re-auth without password — need refresh
+        password: saved.appPassword!,
       );
       _client = bsky.Bluesky.fromSession(session.data);
+
+      // Re-save with fresh JWT tokens
+      await _store.save(
+        handle: saved.handle,
+        did: session.data.did,
+        accessJwt: session.data.accessJwt,
+        refreshJwt: session.data.refreshJwt,
+        appPassword: saved.appPassword!,
+      );
+
       debugPrint('[AtAuth] Session restored for ${saved.handle}');
       return true;
-    } catch (_) {
-      // Session expired — user needs to re-login
+    } catch (e) {
+      debugPrint('[AtAuth] Session restore failed: $e');
       await _store.clear();
-      debugPrint('[AtAuth] Session expired, cleared');
       return false;
     }
   }

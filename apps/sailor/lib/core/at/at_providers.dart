@@ -1,19 +1,78 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:ev_protocol_at/ev_protocol_at.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sailor/core/db/database_provider.dart';
 
-import 'dart:io';
-
-/// AT Protocol session store — uses flutter_secure_storage for iOS Keychain/Android Keystore.
-/// On macOS, uses an in-memory store to avoid Keychain entitlement requirements during local development.
+/// AT Protocol session store.
+///
+/// iOS: FlutterSecureStorage (Keychain works with proper provisioning).
+/// macOS: File-based JSON in app support directory (Keychain requires
+///        code signing entitlements that don't work in unsigned debug builds).
 final atSessionStoreProvider = Provider<AtSessionStore>((ref) {
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-    return AtSessionStore();
+    return _createFileBasedStore();
   }
+  return _createSecureStore();
+});
 
+/// File-based session storage for desktop (avoids Keychain entitlement issues).
+AtSessionStore _createFileBasedStore() {
+  // Store in home directory as a hidden file
+  final home = Platform.environment['HOME'] ?? '.';
+  final sessionFile = File('$home/.sailor_session.json');
+
+  return AtSessionStore(
+    onSave: (session) async {
+      try {
+        final json = jsonEncode({
+          'handle': session.handle,
+          'did': session.did,
+          'accessJwt': session.accessJwt,
+          'refreshJwt': session.refreshJwt,
+          'appPassword': session.appPassword,
+        });
+        await sessionFile.writeAsString(json);
+      } catch (e) {
+        debugPrint('[AtAuth] File storage write failed: $e');
+      }
+    },
+    onLoad: () async {
+      try {
+        if (!await sessionFile.exists()) return null;
+        final json = jsonDecode(await sessionFile.readAsString())
+            as Map<String, dynamic>;
+        return SavedSession(
+          handle: json['handle'] as String,
+          did: json['did'] as String,
+          accessJwt: json['accessJwt'] as String,
+          refreshJwt: json['refreshJwt'] as String,
+          appPassword: json['appPassword'] as String?,
+        );
+      } catch (e) {
+        debugPrint('[AtAuth] File storage read failed: $e');
+      }
+      return null;
+    },
+    onClear: () async {
+      try {
+        if (await sessionFile.exists()) {
+          await sessionFile.delete();
+        }
+      } catch (e) {
+        debugPrint('[AtAuth] File storage clear failed: $e');
+      }
+    },
+  );
+}
+
+/// Secure storage for iOS (Keychain).
+AtSessionStore _createSecureStore() {
   const storage = FlutterSecureStorage();
-  
+
   return AtSessionStore(
     onSave: (session) async {
       try {
@@ -21,8 +80,11 @@ final atSessionStoreProvider = Provider<AtSessionStore>((ref) {
         await storage.write(key: 'at_did', value: session.did);
         await storage.write(key: 'at_access_jwt', value: session.accessJwt);
         await storage.write(key: 'at_refresh_jwt', value: session.refreshJwt);
+        if (session.appPassword != null) {
+          await storage.write(key: 'at_app_password', value: session.appPassword);
+        }
       } catch (e) {
-        // Ignore keychain errors on unsigned local macOS builds
+        debugPrint('[AtAuth] Secure storage write failed: $e');
       }
     },
     onLoad: () async {
@@ -31,17 +93,19 @@ final atSessionStoreProvider = Provider<AtSessionStore>((ref) {
         final did = await storage.read(key: 'at_did');
         final access = await storage.read(key: 'at_access_jwt');
         final refresh = await storage.read(key: 'at_refresh_jwt');
-        
+        final appPassword = await storage.read(key: 'at_app_password');
+
         if (handle != null && did != null && access != null && refresh != null) {
           return SavedSession(
             handle: handle,
             did: did,
             accessJwt: access,
             refreshJwt: refresh,
+            appPassword: appPassword,
           );
         }
       } catch (e) {
-        // Ignore keychain errors on unsigned local macOS builds
+        debugPrint('[AtAuth] Secure storage read failed: $e');
       }
       return null;
     },
@@ -51,12 +115,13 @@ final atSessionStoreProvider = Provider<AtSessionStore>((ref) {
         await storage.delete(key: 'at_did');
         await storage.delete(key: 'at_access_jwt');
         await storage.delete(key: 'at_refresh_jwt');
+        await storage.delete(key: 'at_app_password');
       } catch (e) {
-        // Ignore keychain errors on unsigned local macOS builds
+        debugPrint('[AtAuth] Secure storage clear failed: $e');
       }
     },
   );
-});
+}
 
 /// AT Protocol authentication service.
 final atAuthServiceProvider = Provider<AtAuthService>((ref) {

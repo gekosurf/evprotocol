@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import '../auth/at_auth_service.dart';
 import '../lexicon_nsids.dart';
 import '../mappers/event_mapper.dart';
+import '../mappers/rsvp_mapper.dart';
 import '../models/smoke_signal_event.dart';
+import '../models/smoke_signal_rsvp.dart';
 
 /// AT Protocol-backed event repository.
 ///
@@ -222,6 +224,15 @@ class AtEventRepository {
       ),
     );
 
+    // Increment rsvpCount on the event for immediate UI feedback
+    if (status == EvRsvpStatus.confirmed) {
+      await _db.customUpdate(
+        'UPDATE cached_events SET rsvp_count = rsvp_count + 1 WHERE dht_key = ?',
+        variables: [Variable.withString(eventKey)],
+        updates: {_db.cachedEvents},
+      );
+    }
+
     return rsvp;
   }
 
@@ -287,6 +298,7 @@ class AtEventRepository {
     if (client == null) return 0;
 
     try {
+      // Step 1: Refresh events
       final listResult = await client.atproto.repo.listRecords(
         repo: _auth.did!,
         collection: LexiconNsids.event,
@@ -304,6 +316,61 @@ class AtEventRepository {
         await _insertOrUpdateEventInDb(event);
         count++;
       }
+
+      // Step 2: Refresh RSVPs from PDS
+      try {
+        final rsvpResult = await client.atproto.repo.listRecords(
+          repo: _auth.did!,
+          collection: LexiconNsids.rsvp,
+        );
+
+        for (final record in rsvpResult.data.records) {
+          final smokeSignal = SmokeSignalRsvp.fromRecord(record.value);
+          final rsvp = RsvpMapper.fromSmokeSignal(
+            smokeSignal,
+            atUri: record.uri.toString(),
+            attendeeDid: _auth.did!,
+          );
+
+          // Upsert RSVP into local cache
+          final now = DateTime.now();
+          await _db.into(_db.cachedRsvps).insert(
+            CachedRsvpsCompanion.insert(
+              eventDhtKey: rsvp.eventDhtKey.value,
+              attendeePubkey: rsvp.attendeePubkey.value,
+              status: rsvp.status.name,
+              guestCount: Value(rsvp.guestCount),
+              createdAt: DateTime.parse(rsvp.createdAt.toIso8601()),
+              lastSyncedAt: now,
+              isDirty: const Value(false),
+            ),
+            onConflict: DoUpdate(
+              (old) => CachedRsvpsCompanion(
+                status: Value(rsvp.status.name),
+                guestCount: Value(rsvp.guestCount),
+                lastSyncedAt: Value(now),
+                isDirty: const Value(false),
+              ),
+              target: [
+                _db.cachedRsvps.eventDhtKey,
+                _db.cachedRsvps.attendeePubkey,
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('[AtSync] RSVP refresh failed: $e');
+      }
+
+      // Step 3: Recompute rsvpCount on events from actual RSVP records
+      await _db.customUpdate(
+        '''UPDATE cached_events SET rsvp_count = (
+          SELECT COUNT(*) FROM cached_rsvps
+          WHERE cached_rsvps.event_dht_key = cached_events.dht_key
+          AND cached_rsvps.status = 'confirmed'
+        )''',
+        updates: {_db.cachedEvents},
+      );
 
       debugPrint('[AtSync] Refreshed $count events from PDS');
       return count;
@@ -443,11 +510,33 @@ class AtEventRepository {
       ),
       onConflict: DoUpdate(
         (old) => CachedEventsCompanion(
+          creatorPubkey: Value(event.creatorPubkey.value),
           name: Value(event.name),
           description: Value(event.description),
           startAt: Value(DateTime.parse(event.startAt.toIso8601())),
+          endAt: Value(event.endAt != null
+              ? DateTime.parse(event.endAt!.toIso8601())
+              : null),
+          locationName: Value(event.location?.name),
+          locationAddress: Value(event.location?.address),
+          latitude: Value(event.location?.latitude),
+          longitude: Value(event.location?.longitude),
+          geohash: Value(event.location?.geohash),
+          category: Value(event.category),
+          tags: Value(event.tags.join(',')),
+          visibility: Value(event.visibility.name),
+          // Note: rsvpCount is NOT overwritten from PDS — Smoke Signal events
+          // don't carry this field (always 0). It's computed from local RSVP records.
+          groupDhtKey: Value(event.groupDhtKey?.value),
+          ticketingJson: Value(event.ticketing != null
+              ? jsonEncode(event.ticketing!.toJson())
+              : null),
+          updatedAt: Value(event.updatedAt != null
+              ? DateTime.parse(event.updatedAt!.toIso8601())
+              : null),
           lastSyncedAt: Value(DateTime.now()),
           isDirty: const Value(false),
+          evVersion: Value(event.evVersion),
         ),
         target: [_db.cachedEvents.dhtKey],
       ),

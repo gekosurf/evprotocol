@@ -71,19 +71,26 @@ class DiscoverEventsNotifier extends AsyncNotifier<EventPage> {
       }
       return repo.getEvents();
     });
+    // Refresh category chips after data changes
+    ref.invalidate(categoriesProvider);
   }
 }
 
 // === CATEGORIES ===
 
 /// All distinct categories auto-derived from cached events.
+///
+/// Completely decoupled from event providers to avoid a Riverpod internal
+/// assertion (pausedActiveSubscriptionCount mismatch) triggered during
+/// TickerMode transitions. Any form of subscription (watch/listen/future)
+/// from this FutureProvider to the AsyncNotifierProvider triggers the bug.
+///
+/// Instead, mutation sites (create event, refresh, RSVP) explicitly
+/// invalidate this provider after changing data.
 final categoriesProvider = FutureProvider<List<String>>((ref) async {
-  // Watch events to automatically rebuild categories when an event is added/refreshed
-  ref.watch(discoverEventsProvider);
-  ref.watch(myEventsProvider);
-
   // Ensure seed data exists before querying categories
   await ref.watch(seedDataProvider.future);
+
   final repo = ref.read(eventRepositoryProvider);
   return repo.getCategories();
 });

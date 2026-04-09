@@ -146,8 +146,31 @@ class AtSyncService {
     final rsvpJson = jsonDecode(item.payload) as Map<String, dynamic>;
     final rsvp = EvRsvp.fromJson(rsvpJson);
 
-    // The eventDhtKey should be the AT URI
-    final eventAtUri = rsvp.eventDhtKey.value;
+    // Look up the event's current dhtKey — it may have been updated
+    // from a local-xxx key to an at:// URI by the event sync.
+    String eventAtUri = rsvp.eventDhtKey.value;
+
+    if (!eventAtUri.startsWith('at://')) {
+      // Try to find the event's current key in SQLite
+      final eventRow = await _db.customSelect(
+        'SELECT dht_key FROM cached_events WHERE dht_key = ? OR id = (SELECT local_record_id FROM sync_queue WHERE record_type = \'event\' AND status = \'completed\' LIMIT 1)',
+        variables: [Variable.withString(eventAtUri)],
+      ).getSingleOrNull();
+
+      if (eventRow != null) {
+        final resolvedKey = eventRow.read<String>('dht_key');
+        if (resolvedKey.startsWith('at://')) {
+          eventAtUri = resolvedKey;
+        }
+      }
+
+      // If still not an at:// URI, defer to next cycle
+      if (!eventAtUri.startsWith('at://')) {
+        debugPrint('[AtSync] RSVP deferred — event not yet synced: $eventAtUri');
+        return false;
+      }
+    }
+
     final smokeSignal = RsvpMapper.toSmokeSignal(rsvp, eventAtUri: eventAtUri);
 
     await client.atproto.repo.createRecord(
