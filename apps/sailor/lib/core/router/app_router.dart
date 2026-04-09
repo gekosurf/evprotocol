@@ -11,6 +11,7 @@ import 'package:sailor/features/events/presentation/pages/create_event_page.dart
 import 'package:sailor/features/events/presentation/pages/event_detail_page.dart';
 import 'package:sailor/features/photos/presentation/pages/event_photos_page.dart';
 import 'package:sailor/features/profile/presentation/pages/profile_page.dart';
+import 'package:sailor/features/settings/presentation/pages/connections_page.dart';
 import 'package:sailor/features/shell/presentation/pages/main_shell.dart';
 import 'package:sailor/features/tracking/presentation/pages/tracking_page.dart';
 
@@ -26,6 +27,7 @@ abstract final class AppRoutes {
   static const String tracking = '/tracking';
   static const String eventPhotos = '/photos';
   static const String profile = '/profile';
+  static const String connections = '/connections';
 }
 
 /// GoRouter configuration with auth redirect.
@@ -93,12 +95,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfilePage(),
       ),
       GoRoute(
+        path: AppRoutes.connections,
+        builder: (context, state) => const ConnectionsPage(),
+      ),
+      GoRoute(
         path: '${AppRoutes.tracking}/:id',
         builder: (context, state) {
-          final extra = state.extra as Map<String, String>?;
+          final extra = state.extra as Map<String, dynamic>?;
           return TrackingPage(
-            eventAtUri: extra?['eventAtUri'] ?? '',
-            eventName: extra?['eventName'] ?? 'Event',
+            eventAtUri: extra?['eventAtUri'] as String? ?? '',
+            eventName: extra?['eventName'] as String? ?? 'Event',
           );
         },
       ),

@@ -104,10 +104,11 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      // Sync from PDS first
+      // Sync from PDS first — scan self + connections
       try {
         final atRepo = ref.read(atEventRepositoryProvider);
-        await atRepo.refreshFromPds();
+        final connectionDids = await ref.read(connectionDidsProvider.future);
+        await atRepo.refreshFromPds(additionalDids: connectionDids);
       } catch (e) {
         // Ignore network errors, just show local cache
       }
@@ -144,6 +145,8 @@ class MyEventsNotifier extends AsyncNotifier<EventPage> {
       category: category,
       tags: tags,
     );
+    // Push to PDS immediately instead of waiting for 30s timer
+    await ref.read(atSyncServiceProvider).processQueue();
     await refresh();
     // Refresh category chips after new event may have added a category
     ref.invalidate(categoriesProvider);

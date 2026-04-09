@@ -177,3 +177,47 @@ final atLoginProvider =
     return did;
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════
+// CONNECTIONS — known Bluesky users to scan for events/RSVPs
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Connections store singleton.
+final connectionsStoreProvider = Provider<ConnectionsStore>((ref) {
+  return ConnectionsStore();
+});
+
+/// All current connections (auto-refreshes when invalidated).
+final connectionsProvider = FutureProvider<List<Connection>>((ref) async {
+  final store = ref.read(connectionsStoreProvider);
+  return store.loadAll();
+});
+
+/// Just the DIDs for PDS scanning.
+final connectionDidsProvider = FutureProvider<List<String>>((ref) async {
+  final connections = await ref.watch(connectionsProvider.future);
+  return connections.map((c) => c.did).toList();
+});
+
+/// Add a connection by Bluesky handle. Resolves handle → DID.
+final addConnectionProvider =
+    FutureProvider.family<void, String>((ref, handle) async {
+  final auth = ref.read(atAuthServiceProvider);
+  final client = auth.client;
+  if (client == null) throw Exception('Not authenticated');
+
+  // Resolve handle to DID
+  final result = await client.atproto.identity.resolveHandle(handle: handle);
+  final did = result.data.did;
+
+  final store = ref.read(connectionsStoreProvider);
+  await store.add(Connection(
+    handle: handle,
+    did: did,
+    addedAt: DateTime.now(),
+  ));
+
+  // Refresh the connections list
+  ref.invalidate(connectionsProvider);
+  debugPrint('[Connections] Added $handle → $did');
+});

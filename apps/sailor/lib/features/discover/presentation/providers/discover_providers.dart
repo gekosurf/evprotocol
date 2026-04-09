@@ -56,9 +56,10 @@ class DiscoverEventsNotifier extends AsyncNotifier<EventPage> {
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      // Step 1: Sync from PDS (if authenticated)
+      // Step 1: Sync from PDS (if authenticated) — scan self + connections
       final atRepo = ref.read(atEventRepositoryProvider);
-      await atRepo.refreshFromPds();
+      final connectionDids = await ref.read(connectionDidsProvider.future);
+      await atRepo.refreshFromPds(additionalDids: connectionDids);
 
       // Step 2: Reload from local cache
       await ref.read(seedDataProvider.future);

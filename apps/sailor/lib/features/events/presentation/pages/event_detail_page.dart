@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sailor/core/router/app_router.dart';
+import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
 import 'package:sailor/features/discover/presentation/providers/discover_providers.dart';
@@ -157,11 +158,14 @@ class EventDetailPage extends ConsumerWidget {
                             eventDhtKey: displayEvent.dhtKey!,
                             status: status,
                           );
+                          // Push to PDS immediately
+                          await ref.read(atSyncServiceProvider).processQueue();
                           // Refresh event lists and the single event detail view
                           ref.invalidate(discoverEventsProvider);
                           ref.invalidate(myEventsProvider);
                           if (displayEvent.dhtKey != null) {
                             ref.invalidate(eventDetailProvider(displayEvent.dhtKey!.value));
+                            ref.invalidate(eventRsvpsProvider(displayEvent.dhtKey!));
                           }
 
                           if (context.mounted) {
@@ -219,15 +223,21 @@ class EventDetailPage extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       final key = displayEvent.dhtKey?.value ?? '';
-                      context.push(
-                        '${AppRoutes.tracking}/${Uri.encodeComponent(key)}',
-                        extra: {
-                          'eventAtUri': key,
-                          'eventName': displayEvent.name,
-                        },
+                      final dids = await ref.read(
+                        eventParticipantDidsProvider(displayEvent.dhtKey!).future,
                       );
+                      if (context.mounted) {
+                        context.push(
+                          '${AppRoutes.tracking}/${Uri.encodeComponent(key)}',
+                          extra: {
+                            'eventAtUri': key,
+                            'eventName': displayEvent.name,
+                            'participantDids': dids,
+                          },
+                        );
+                      }
                     },
                     icon: const Icon(Icons.sailing, size: 18),
                     label: const Text('Track'),
@@ -236,16 +246,21 @@ class EventDetailPage extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       final key = displayEvent.dhtKey?.value ?? '';
-                      context.push(
-                        '${AppRoutes.eventPhotos}/${Uri.encodeComponent(key)}',
-                        extra: {
-                          'eventAtUri': key,
-                          'eventName': displayEvent.name,
-                          'participantDids': <String>[],
-                        },
+                      final dids = await ref.read(
+                        eventParticipantDidsProvider(displayEvent.dhtKey!).future,
                       );
+                      if (context.mounted) {
+                        context.push(
+                          '${AppRoutes.eventPhotos}/${Uri.encodeComponent(key)}',
+                          extra: {
+                            'eventAtUri': key,
+                            'eventName': displayEvent.name,
+                            'participantDids': dids,
+                          },
+                        );
+                      }
                     },
                     icon: const Icon(Icons.photo_library_outlined, size: 18),
                     label: const Text('Photos'),

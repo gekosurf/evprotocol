@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sailor/core/at/at_providers.dart';
 import 'package:sailor/core/sync/sync_provider.dart';
 import 'package:sailor/core/theme/app_colors.dart';
@@ -201,6 +202,18 @@ class ProfilePage extends ConsumerWidget {
                         );
                       }
                     },
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Connections
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.people_outline, size: 18),
+                    label: const Text('Manage Connections'),
+                    onPressed: () => context.push('/connections'),
                   ),
                 ),
 

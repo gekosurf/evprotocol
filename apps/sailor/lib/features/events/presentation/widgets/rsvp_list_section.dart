@@ -5,6 +5,22 @@ import 'package:sailor/core/theme/app_colors.dart';
 import 'package:sailor/core/theme/app_text_styles.dart';
 import 'package:sailor/features/events/presentation/providers/event_providers.dart';
 
+/// Derive participant DIDs from event creator + RSVP attendees.
+/// Used by photo and tracking pages to know whose PDS to scan.
+final eventParticipantDidsProvider =
+    FutureProvider.family<List<String>, EvDhtKey>((ref, eventKey) async {
+  final repo = ref.read(eventRepositoryProvider);
+  final event = await repo.getEvent(eventKey);
+  final rsvps = await repo.getEventRsvps(eventKey);
+
+  final dids = <String>{};
+  if (event != null) dids.add(event.creatorPubkey.value);
+  for (final rsvp in rsvps) {
+    dids.add(rsvp.attendeePubkey.value);
+  }
+  return dids.toList();
+});
+
 /// Shows the list of RSVPs for an event.
 class RsvpListSection extends ConsumerWidget {
   final EvEvent event;
@@ -13,7 +29,7 @@ class RsvpListSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rsvpsFuture = ref.watch(_eventRsvpsProvider(event.dhtKey!));
+    final rsvpsFuture = ref.watch(eventRsvpsProvider(event.dhtKey!));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,7 +111,7 @@ class RsvpListSection extends ConsumerWidget {
 }
 
 /// Provider that fetches RSVPs for a specific event.
-final _eventRsvpsProvider =
+final eventRsvpsProvider =
     FutureProvider.family<List<EvRsvp>, EvDhtKey>((ref, eventKey) async {
   final repo = ref.read(eventRepositoryProvider);
   return repo.getEventRsvps(eventKey);

@@ -127,8 +127,9 @@ class AtSyncService {
     );
 
     final atUri = result.data.uri.toString();
+    final oldKey = event.dhtKey?.value;
 
-    // Update local record with real AT URI
+    // Update local event record with real AT URI
     await (_db.update(_db.cachedEvents)
           ..where((t) => t.id.equals(item.localRecordId)))
         .write(CachedEventsCompanion(
@@ -136,6 +137,15 @@ class AtSyncService {
       isDirty: const Value(false),
       lastSyncedAt: Value(DateTime.now()),
     ));
+
+    // Update any RSVPs referencing the old local key
+    if (oldKey != null && oldKey != atUri) {
+      await _db.customUpdate(
+        'UPDATE cached_rsvps SET event_dht_key = ? WHERE event_dht_key = ?',
+        variables: [Variable.withString(atUri), Variable.withString(oldKey)],
+        updates: {_db.cachedRsvps},
+      );
+    }
 
     debugPrint('[AtSync] Event synced → $atUri');
     return true;
